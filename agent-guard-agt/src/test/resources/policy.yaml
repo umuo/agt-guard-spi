@@ -1,0 +1,32 @@
+apiVersion: agt.java/v1
+version: example-v1
+interventionPoints:
+    - input
+    - pre_model_call
+    - post_model_call
+    - pre_tool_call
+    - post_tool_call
+    - output
+budget:
+    maxModelCalls: 20
+    maxToolCalls: 50
+    maxDurationMillis: 300000
+tools:
+    lookup:
+        permissions: [read]
+        approvalRequired: false
+        parameters:
+            type: OBJECT
+            properties:
+                tenant:
+                    type: STRING
+                    equalsContext: tenantId
+                query:
+                    type: STRING
+            required: [tenant, query]
+contentRules:
+    - id: content-rule
+      points: [input, pre_model_call, post_model_call, pre_tool_call, post_tool_call, output]
+      denyContains: [DENIED]
+      replacements:
+          SECRET: MASKED

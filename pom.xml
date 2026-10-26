@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.agentguard</groupId>
+    <artifactId>agent-guard-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>Agent Guard :: Parent</name>
+    <description>框架无关的 Agent 安全护栏 SPI 规范</description>
+
+    <modules>
+        <module>agent-guard-spec</module>
+        <module>agent-guard-core</module>
+        <module>agent-guard-agt</module>
+        <module>agt-core</module>
+    </modules>
+
+    <profiles>
+        <profile>
+            <id>agt</id>
+        </profile>
+        <profile>
+            <id>agt-format</id>
+            <activation>
+                <jdk>[17,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.diffplug.spotless</groupId>
+                        <artifactId>spotless-maven-plugin</artifactId>
+                        <version>2.44.3</version>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <java>
+                                <includes>
+                                    <include>agt-core/src/**/*.java</include>
+                                    <include>agent-guard-agt/src/**/*.java</include>
+                                </includes>
+                                <googleJavaFormat>
+                                    <version>1.22.0</version>
+                                    <style>AOSP</style>
+                                    <formatJavadoc>false</formatJavadoc>
+                                </googleJavaFormat>
+                                <removeUnusedImports/>
+                            </java>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <junit.version>4.13.2</junit.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.agentguard</groupId>
+                <artifactId>agent-guard-spec</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>
