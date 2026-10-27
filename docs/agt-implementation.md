@@ -15,6 +15,10 @@ Java 8 改造验收：保留构造校验、不可变集合、值比较、脱敏�
 真实 JDK 8 执行全部测试和 JAR 自动装配，生成的所有生产 class 均为 major 52；
 JDK 17 使用同一套 Java 8 源码执行交叉验证。不能靠仅修改 target 或跳过测试来宣称兼容。
 
+## 纯代码便捷入口
+
+常用规则可以通过 `AgtGuards.builder()` 配置，自动创建策略、Provider 和引擎，无需 YAML。用法与配置校验见 [Fluent Builder 指南](agt-fluent-api.md)。已有的底层 API 和自动装配契约继续保留。
+
 ## 构建与使用
 
 默认构建已包含全部四个模块；`agt` profile 保留为兼容入口，不重复声明模块。JDK 8+ 构建完整工程：

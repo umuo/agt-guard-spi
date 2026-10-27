@@ -22,3 +22,7 @@ SDK 实现对应阶段的 Guard，通过 Builder 注册到 Engine。发现违规
 
 
 SDK 可通过 `GuardEngineFactory` 发布引擎，实现业务应用引入后自动生效。采用参考引擎时，注册 `DefaultGuardEngineFactory` 和自己的 `GuardProvider` 即可；LangChain4j 不需要依赖具体 SDK 或 core。完整的代码、资源文件和配置规则见 [SDK 自动装配指南](docs/sdk-auto-configuration.md)。
+
+调用链与源码调试：[LangChain4j 与 Agent Guard AGT 调用链及调试指南](docs/langchain4j-agt-call-chain.md)。
+
+纯代码便捷配置：[AGT Fluent Builder](docs/agt-fluent-api.md)，使用 `AgtGuards.builder()` 声明内容、脱敏和工具规则，`build()` 直接得到引擎。
