@@ -21,7 +21,7 @@ SDK 实现对应阶段的 Guard，通过 Builder 注册到 Engine。发现违规
 异常契约：违规阻断抛 `GuardBlockedException`；检测故障按 `FAIL_CLOSED` 阻断时抛 `GuardExecutionException`，保留原因。故障审计记录的 `decidedAction()` 为 `null`，使用 `error()` 区分故障与检测决议。
 
 
-SDK 可通过 `GuardEngineFactory` 发布引擎，实现业务应用引入后自动生效。采用参考引擎时，注册 `DefaultGuardEngineFactory` 和自己的 `GuardProvider` 即可；LangChain4j 不需要依赖具体 SDK 或 core。完整的代码、资源文件和配置规则见 [SDK 自动装配指南](docs/sdk-auto-configuration.md)。
+SDK 可通过 `GuardEngineFactory` 发布引擎，由业务应用显式 `.guardAutoDiscovery(true)` 后自动装配。框架默认不启用护栏；显式传入 `.guardEngine(engine)` 也可直接启用。采用参考引擎时，注册 `DefaultGuardEngineFactory` 和自己的 `GuardProvider` 即可；LangChain4j 不需要依赖具体 SDK 或 core。完整的代码、资源文件和配置规则见 [SDK 自动装配指南](docs/sdk-auto-configuration.md)。
 
 调用链与源码调试：[LangChain4j 与 Agent Guard AGT 调用链及调试指南](docs/langchain4j-agt-call-chain.md)。
 

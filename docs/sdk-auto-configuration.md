@@ -1,6 +1,6 @@
-# SDK 引入后自动生效
+# SDK 显式开启后的自动装配
 
-LangChain4j 的生产代码只依赖 `agent-guard-spec`。SDK 发布工厂的 Java SPI 注册文件后，应用在构建 AI Service 时就会发现并启用引擎，无需调用 `.guardEngine(...)`。
+LangChain4j 的生产代码只依赖 `agent-guard-spec`。框架默认关闭护栏自动发现。SDK 发布工厂的 Java SPI 注册文件后，应用须显式设置 `.guardAutoDiscovery(true)`，构建 AI Service 时才会发现并启用引擎；也可直接调用 `.guardEngine(engine)` 使用手动引擎。
 
 ```text
 业务应用
@@ -96,15 +96,16 @@ com.example.security.SampleSdkGuardProvider
 
 构建 SDK JAR 后，可用 `jar tf` 检查这两个描述文件是否存在。使用 shaded/uber JAR 时需要合并服务描述文件，不能让打包插件覆盖其他 Provider 注册。
 
-业务项目引入 SDK 和适配过的 LangChain4j，照常调用：
+业务项目引入 SDK 和适配过的 LangChain4j，手动开启发现：
 
 ```java
 Assistant assistant = AiServices.builder(Assistant.class)
         .chatModel(model)
+        .guardAutoDiscovery(true)
         .build();
 ```
 
-无需显式构造引擎。示例 Provider 在输入包含 `[blocked-demo]` 时应抛 `GuardBlockedException`，且不会调用模型。真实 SDK 需要的密钥、服务地址等配置由 SDK 自行读取和校验；缺失配置应使初始化失败。
+手动开启发现后，无需显式构造引擎。示例 Provider 在输入包含 `[blocked-demo]` 时应抛 `GuardBlockedException`，且不会调用模型。真实 SDK 需要的密钥、服务地址等配置由 SDK 自行读取和校验；缺失配置应使初始化失败。
 
 ## SDK 使用自有引擎或配置策略
 
@@ -114,9 +115,12 @@ SDK 可以在工厂内部配置策略、审计、远程客户端或组合多个 
 
 ## 默认行为与配置
 
+扫描结果及工厂错误仅在显式开启自动发现、且没有手动引擎时适用。默认关闭时，已安装 SDK、损坏注册或缺少策略配置不会触发工厂加载。
+
 | 配置或场景 | 行为 |
 | --- | --- |
-| 默认 | 每个 AI Service 构建上下文自动发现工厂 |
+| 默认 | 不扫描 SDK 工厂，不因 classpath 中有 SDK 而启用护栏 |
+| `.guardAutoDiscovery(true)` | 无显式引擎时，在 build 阶段扫描并初始化工厂 |
 | 没有工厂 | 不启用护栏，保持原行为 |
 | 一个有效工厂 | 在 build 时初始化并接入六阶段 |
 | 多个不同工厂 | 构建失败，不随机选择；应用可显式提供组合引擎 |

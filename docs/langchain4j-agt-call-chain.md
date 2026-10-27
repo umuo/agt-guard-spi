@@ -24,11 +24,12 @@ LangChain4j 的生产代码只依赖 spec。AGT SDK 传递引入 core 和 agt-co
 AiServices.builder(Assistant.class)
     .chatModel(model)
     .tools(tools)
+    .guardAutoDiscovery(true)
     .guardContextFactory(...)
     .build()
 ```
 
-上面是调用顺序示意，省略了上下文工厂的具体实现。自动装配路径不配置 `guardEngine`。
+上面是调用顺序示意，省略了上下文工厂的具体实现。自动装配路径显式开启 `guardAutoDiscovery(true)`，不配置 `guardEngine`；框架默认关闭发现。
 
 构建调用链：
 
@@ -68,7 +69,7 @@ public GuardEngine create() {
 }
 ```
 
-自动发现关闭，或已经显式配置引擎时，跳过扫描。没有工厂则保持未启用护栏的行为；存在多个不同工厂则构建失败，不随机选一个。发现、初始化错误也会使构建失败。
+自动发现默认关闭。只有手动设置 guardAutoDiscovery(true) 且没有显式引擎时扫描；否则跳过。没有工厂则保持未启用护栏的行为；存在多个不同工厂则构建失败，不随机选一个。发现、初始化错误也会使构建失败。
 
 ### 2.2 第二次 SPI：找规则提供者
 

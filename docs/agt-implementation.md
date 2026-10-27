@@ -34,7 +34,7 @@ Spotless/Google Java Format 工具需要 JDK 17，独立的 `agt-format` profile
 格式检查可在 JDK 17 下执行 `mvn -N spotless:check`。
 
 业务项目引入 `org.agentguard:agent-guard-agt:1.0.0-SNAPSHOT`，它传递依赖参考引擎与复制的 AGT core。
-框架只需要依赖 spec，并落实六阶段 hook 与 payloadOrThrow；已完成适配的框架可以通过 GuardEngineFactory 自动发现 SDK。
+框架只需要依赖 spec，并落实六阶段 hook 与 payloadOrThrow；已完成适配的框架在显式 guardAutoDiscovery(true) 后通过 GuardEngineFactory 自动发现 SDK；默认不启用。
 本次未修改外部 LangChain4j 或新增 Spring AI hook，未经适配的框架不会因引入 SDK 自动获得六阶段检查。
 
 将 [可运行示例策略](../agent-guard-agt/src/test/resources/policy.yaml) 复制为业务配置，例如 `config/agt-policy.yaml`。

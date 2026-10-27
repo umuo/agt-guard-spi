@@ -98,7 +98,7 @@ Guard id 全局非空、非空白且唯一，stage 非空；check 入参非空�
 框架继续只依赖 spec，SDK 传递引入 core 或使用自己的引擎实现。采用 Java 8 ServiceLoader，无新增框架依赖；沿用 LangChain4j 的 ServiceHelper 处理线程上下文类加载器及回退机制。服务发现、无参构造与描述文件格式遵循 [JDK SPI 文档](https://docs.oracle.com/javase/8/docs/api/java/util/ServiceLoader.html)。
 
 - 服务 build 时发现工厂，后续请求复用引擎；不做全局静态缓存。
-- 默认自动发现；没有工厂时维持原有行为。
+- 默认关闭自动发现；仅显式 guardAutoDiscovery(true) 时扫描，没有工厂时维持原有行为。
 - 显式 guardEngine(engine) 优先，不扫描、不构造自动工厂。
 - guardAutoDiscovery(false) 关闭扫描，不关闭显式配置的引擎。
 - 多个工厂报冲突，不按优先级或 classpath 顺序选一个；工厂构造应轻量。
