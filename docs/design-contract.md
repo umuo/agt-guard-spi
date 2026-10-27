@@ -4,7 +4,7 @@
 
 为不同 Java Agent 框架提供同一套安全 SDK 接入契约。规范层仅依赖 JDK 8；保留现有六阶段接口。
 本次修复核心编排与 LangChain4j 原型接入，覆盖非流式同步、异步、工具循环和输出 Guardrail 的模型重试。
-Spring AI 适配、流式缓存检测、媒体检测、远程 SDK 实现与批量工具原子预检属于后续工作，不宣称已支持。
+TokenStream 流式缓存与窗口检测现已按 [流式契约](streaming-design.md) 显式接入。Spring AI、媒体、远程 SDK 与批量工具原子预检仍不宣称支持。
 
 ## 分层与选型
 
@@ -66,7 +66,7 @@ Guard id 全局非空、非空白且唯一，stage 非空；check 入参非空�
 - 工具名称与调用 ID 不允许改写；跨工具权限域的路由应由应用控制。
 - 结构化输出以 JSON 提供检测表示；改写须返回原类型 structured 对象，不能将 POJO 或 Result<POJO> 变成字符串。
 - 文本之外的媒体/未知消息暂不支持，转换时明确报错，不能只抽取文本后静默放行。
-- 流式模型与 Engine 同时配置时在 build 阶段明确拒绝，后续再实现缓存后检测策略。
+- TokenStream 通过 guardStreaming 显式选择 STRICT 或 WINDOW；默认未启用、引擎无能力或配置不兼容时明确拒绝。Flow.Publisher 的独立状态机组合暂不支持。
 - guardContextFactory：每次请求创建根上下文，默认读取可信 InvocationParameters 的 tenantId/userId；应用可覆盖。
 - guardExecutor：异步模型检测执行器，由调用方管理。默认 commonPool 仅适合轻量本地检测，远程检测应提供有界专用执行器；Agent/工具同步 Guard 的耗时仍计入相应业务调用，不能宣称所有扩展点完全非阻塞。
 
@@ -80,13 +80,13 @@ Guard id 全局非空、非空白且唯一，stage 非空；check 入参非空�
 - [x] TOOL_INPUT 阻断后工具无副作用；TOOL_OUTPUT REJECT 不泄漏原结果。
 - [x] 多轮和异步检测不漏执行；输出 Guardrail 重试经过同样检测。
 - [x] POJO 与 Result<POJO> 改写不改变返回类型；不支持的改写明确失败。
-- [x] 流式配置在构建时被拒绝，多模态在转换时被拒绝。
+- [x] 未启用模式或能力不兼容的流式组合在构建时被拒绝，多模态在转换时被拒绝。
 
 ## 本轮验证记录
 
 - Agent Guard：`mvn -o test`，19 个测试通过，包含新增 12 个契约测试。
 - LangChain4j：通过项目 Maven Wrapper 执行 AiServicesAgentGuardTest、AgentGuardContractTest、ToolServiceTest、AiServicesTest、AiServicesAsyncTest、OutputGuardrailChatRequestTest，共 114 个测试通过，其中新增 13 个接入契约测试。
-- 不支持能力的验收表示明确拒绝，不表示已实现流式或媒体检测。
+- 历史验证中的流式拒绝不代表流式实现；新增 TokenStream 能力及验证单独记录在流式契约中。媒体仍明确拒绝。
 - 未运行整个 LangChain4j 多模块工程的所有测试，也未运行 Sonar。
 - LangChain4j 本轮 8 个 Java 文件通过仓库 Spotless 格式化检查；两个工作区通过 `git diff --check`。
 

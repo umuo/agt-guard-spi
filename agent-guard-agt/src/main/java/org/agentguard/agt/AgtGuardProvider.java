@@ -24,13 +24,13 @@ import org.agentguard.decision.GuardDecision;
 import org.agentguard.decision.RiskCategory;
 import org.agentguard.decision.RiskLevel;
 import org.agentguard.spi.Guard;
-import org.agentguard.spi.GuardProvider;
 
 /**
  * 通过中立六阶段 SPI 发布 AGT 策略，不创建会话运行时或执行模型和工具。
  * 自定义评估器必须线程安全，宿主负责最终参数授权顺序及可信身份注入。
  */
-public final class AgtGuardProvider implements GuardProvider {
+public final class AgtGuardProvider implements org.agentguard.streaming.StreamingGuardProvider {
+    private final PolicyEvaluator evaluator;
     public static final String POLICY_PATH_PROPERTY = "agentguard.agt.policy-path";
     public static final String POLICY_PATH_ENV = "AGENTGUARD_AGT_POLICY_PATH";
     private final List<Guard<?>> guards;
@@ -40,7 +40,7 @@ public final class AgtGuardProvider implements GuardProvider {
     }
 
     public AgtGuardProvider(PolicyEvaluator evaluator) {
-        Objects.requireNonNull(evaluator, "evaluator");
+        this.evaluator = Objects.requireNonNull(evaluator, "evaluator");
         List<Guard<?>> configured = new ArrayList<>();
         for (GuardStage stage : GuardStage.values()) {
             InterventionPoint point = point(stage);
@@ -63,6 +63,24 @@ public final class AgtGuardProvider implements GuardProvider {
                     "Configure " + POLICY_PATH_PROPERTY + " or " + POLICY_PATH_ENV);
         }
         return StructuredPolicy.fromPath(Paths.get(path));
+    }
+
+    @Override
+    public void validateWindow(org.agentguard.streaming.GuardStreamOptions options) {
+        try (AgtWindowStream ignored =
+                new AgtWindowStream(evaluator, options, text -> {}, error -> {})) {
+            // 构造阶段验证全部输出规则、词表容量与窗口上限，不启动线程。
+        }
+    }
+
+    @Override
+    public org.agentguard.streaming.GuardStream openWindow(
+            org.agentguard.streaming.GuardStreamOptions options,
+            GuardContext context,
+            java.util.function.Consumer<String> output,
+            java.util.function.Consumer<Throwable> failure) {
+        trusted(context);
+        return new AgtWindowStream(evaluator, options, output, failure);
     }
 
     @Override

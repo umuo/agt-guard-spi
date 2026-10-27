@@ -18,6 +18,7 @@ import java.util.ServiceLoader;
  */
 public class GuardEngineBuilder {
 
+    private final List<GuardProvider> providers = new ArrayList<GuardProvider>();
     private final List<Guard<?>> guards = new ArrayList<Guard<?>>();
     private final List<GuardEventListener> listeners = new ArrayList<GuardEventListener>();
     private GuardPolicyResolver policyResolver = GuardPolicyResolver.defaults();
@@ -42,6 +43,7 @@ public class GuardEngineBuilder {
 
     public GuardEngineBuilder addProvider(GuardProvider provider) {
         if (provider != null) {
+            providers.add(provider);
             Collection<? extends Guard<?>> providedGuards = provider.guards();
             addGuards(providedGuards);
         }
@@ -89,6 +91,6 @@ public class GuardEngineBuilder {
     }
 
     public GuardEngine build() {
-        return new DefaultGuardEngine(guards, policyResolver, listeners);
+        return new DefaultGuardEngine(guards, policyResolver, listeners, providers);
     }
 }

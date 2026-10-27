@@ -56,7 +56,9 @@ import java.util.concurrent.CancellationException;
  *   <li>审计上报：阶段执行结束（无论是放行、改写还是阻断）均会触发 {@link GuardEventListener}。</li>
  * </ol>
  */
-public class DefaultGuardEngine implements GuardEngine {
+public class DefaultGuardEngine implements org.agentguard.streaming.StreamingGuardEngine {
+
+    private final GuardStreamingSupport streaming;
 
     private final Map<GuardStage, List<Guard<?>>> guardsByStage;
     private final GuardPolicyResolver policyResolver;
@@ -65,9 +67,29 @@ public class DefaultGuardEngine implements GuardEngine {
     public DefaultGuardEngine(List<Guard<?>> guards,
                               GuardPolicyResolver policyResolver,
                               List<GuardEventListener> listeners) {
+        this(guards, policyResolver, listeners, Collections.emptyList());
+    }
+
+    public DefaultGuardEngine(List<Guard<?>> guards,
+            GuardPolicyResolver policyResolver, List<GuardEventListener> listeners,
+            List<org.agentguard.spi.GuardProvider> providers) {
+        this.streaming = new GuardStreamingSupport(guards, providers,
+                policyResolver == null || policyResolver == GuardPolicyResolver.defaults());
         this.guardsByStage = indexGuards(guards);
         this.policyResolver = policyResolver != null ? policyResolver : GuardPolicyResolver.defaults();
         this.listeners = Immutables.list(listeners);
+    }
+
+    @Override
+    public void validateStreaming(org.agentguard.streaming.GuardStreamOptions options) {
+        streaming.validate(options);
+    }
+
+    @Override
+    public org.agentguard.streaming.GuardStream openStream(
+            org.agentguard.streaming.GuardStreamOptions options, GuardContext context,
+            java.util.function.Consumer<String> output, java.util.function.Consumer<Throwable> failure) {
+        return streaming.open(options, context, output, failure);
     }
 
     public static GuardEngineBuilder builder() {

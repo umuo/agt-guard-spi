@@ -16,7 +16,7 @@ mvn test
 
 SDK 实现对应阶段的 Guard，通过 Builder 注册到 Engine。发现违规返回 `GuardDecision.block(...)`，普通执行故障交由失败策略处理；框架适配器必须应用修改后的 payload，并通过 `payloadOrThrow()` 落实终止。
 
-具体分层、动作语义、已支持能力及验收要求见 [设计契约](docs/design-contract.md)。当前提供 AGT 策略 Provider；LangChain4j 接入原型位于独立框架仓库。流式、媒体与 Spring AI 适配尚未实现。
+具体分层、动作语义、已支持能力及验收要求见 [设计契约](docs/design-contract.md)。当前提供 AGT 策略 Provider；LangChain4j 接入原型位于独立框架仓库。TokenStream 流式护栏支持显式完整缓存或有界字面窗口模式，见 [流式契约](docs/streaming-design.md)；媒体与 Spring AI 适配尚未实现。
 
 异常契约：违规阻断抛 `GuardBlockedException`；检测故障按 `FAIL_CLOSED` 阻断时抛 `GuardExecutionException`，保留原因。故障审计记录的 `decidedAction()` 为 `null`，使用 `error()` 区分故障与检测决议。
 

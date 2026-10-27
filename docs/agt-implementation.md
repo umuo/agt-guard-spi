@@ -125,3 +125,6 @@ JDK 8 的标准 Process API 无法枚举后代，ProcessCleanup.supportsDescenda
 两种路径都不提供进程组、cgroup 或沙箱隔离保证；可能派生后台进程且需要完整清理的命令应使用专用 CommandBackend。
 不能将主进程结束当成所有后代已退出。本次没有给 JDK 8 添加依赖 ps/kill 或私有 JVM 字段的生产实现。
 POSIX 命令测试使用系统进程存活查询；Windows 上的命令测试未验证。
+
+
+流式增量扩展复用 ChunkBufferEngine，不启动 AgentControl；支持的完整缓存、字面窗口和生命周期约束见 [流式契约](streaming-design.md)。

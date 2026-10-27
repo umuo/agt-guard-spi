@@ -8,7 +8,7 @@ LangChain4j 的生产代码只依赖 `agent-guard-spec`。SDK 发布工厂的 Ja
 └── 安全 SDK → agent-guard-core → agent-guard-spec
 ```
 
-这里的 LangChain4j 指本项目已接入六阶段护栏的版本，未经适配的其他发行版不会凭空获得检查点。当前仍支持非流式文本及工具调用，其他能力以设计契约为准。
+这里的 LangChain4j 指本项目已接入六阶段护栏的版本，未经适配的其他发行版不会凭空获得检查点。非流式文本与工具调用沿用原契约；TokenStream 可显式开启流式护栏，模式及限制见 [流式契约](streaming-design.md)。
 
 ## SDK 使用参考引擎
 
@@ -125,7 +125,7 @@ SDK 可以在工厂内部配置策略、审计、远程客户端或组合多个 
 | `.guardEngine(engine)` | 显式引擎优先，不扫描自动工厂 |
 | `.guardAutoDiscovery(false)` | 关闭扫描；已有或显式配置的引擎仍生效 |
 | `.guardEngine(null)` | 清除当前引擎；自动发现开启时下一次 build 会重新发现 |
-| 自动启用后配置流式模型 | 沿用现有兼容性检查，构建失败 |
+| 自动启用后配置流式模型 | 仍需显式 guardStreaming；缺少能力或模式不兼容则失败 |
 
 发现使用 LangChain4j 已有的 `ServiceHelper`，优先使用线程上下文类加载器，未找到工厂时回退到框架类加载器。不会将工厂或引擎保存到全局静态缓存。
 

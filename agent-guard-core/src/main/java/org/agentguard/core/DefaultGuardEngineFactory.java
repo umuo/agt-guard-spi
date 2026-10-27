@@ -48,6 +48,6 @@ public final class DefaultGuardEngineFactory implements GuardEngineFactory {
             throw new IllegalStateException("An auto-configured SDK must provide at least one Guard");
         }
         // 直接交给引擎校验 null、重复 id 和非法 stage，不能静默过滤无效规则。
-        return new DefaultGuardEngine(guards, null, null);
+        return new DefaultGuardEngine(guards, null, null, providers);
     }
 }
