@@ -56,8 +56,30 @@ public final class AgtGuards {
         private Builder() {}
 
         public Builder version(String value) {
-            version = Identifiers.require(value);
+            version = identifier(value, "version");
             return this;
+        }
+
+        /**
+         * 在独立草稿上应用可复用配置，回调正常结束后才提交配置快照。
+         * 回调只能配置收到的草稿，外部系统副作用不在回滚范围内。
+         */
+        public Builder configure(Consumer<Builder> configuration) {
+            Objects.requireNonNull(configuration, "configuration");
+            Builder draft = new Builder();
+            draft.copyFrom(this);
+            configuration.accept(draft);
+            copyFrom(draft);
+            return this;
+        }
+
+        private void copyFrom(Builder source) {
+            version = source.version;
+            nextRuleId = source.nextRuleId;
+            rules.clear();
+            rules.putAll(source.rules);
+            tools.clear();
+            tools.putAll(source.tools);
         }
 
         /** 六阶段拒绝包含任意指定字面字符串的内容，不提供语义注入检测。 */
@@ -77,12 +99,40 @@ public final class AgtGuards {
             return maskAt(GuardStage.TOOL_OUTPUT, source, replacement);
         }
 
+        /**
+         * 按 Map 的迭代顺序批量脱敏，整个批次验证失败时不添加任何规则。
+         */
+        public Builder maskInput(Map<String, String> replacements) {
+            return maskAt(GuardStage.AGENT_INPUT, replacements);
+        }
+
+        public Builder maskToolOutput(Map<String, String> replacements) {
+            return maskAt(GuardStage.TOOL_OUTPUT, replacements);
+        }
+
+        public Builder maskAt(GuardStage stage, Map<String, String> replacements) {
+            point(stage);
+            Objects.requireNonNull(replacements, "replacements");
+            if (replacements.isEmpty()) {
+                throw invalid(
+                        "contentRules." + stage + ".replacements",
+                        "Configure at least one replacement");
+            }
+            Map<String, String> snapshot = new LinkedHashMap<>(replacements);
+            return configure(
+                    draft ->
+                            snapshot.forEach(
+                                    (source, target) -> draft.maskAt(stage, source, target)));
+        }
+
         /** 同阶段同源字符串禁止重复替换；不同来源的替换按声明顺序串联。 */
         public Builder maskAt(GuardStage stage, String source, String replacement) {
-            requireText(source);
-            Objects.requireNonNull(replacement, "replacement");
+            point(stage);
+            String location = "contentRules." + stage + ".replacements";
+            requireText(source, location + ".source");
+            Objects.requireNonNull(replacement, location + ".target must not be null");
             if (source.equals(replacement)) {
-                throw new IllegalArgumentException("Replacement must change the source text");
+                throw invalid(location, "Replacement must change the source text");
             }
             return contentRule(
                     new ContentRule(
@@ -94,10 +144,28 @@ public final class AgtGuards {
 
         public Builder tool(String name, Consumer<ToolBuilder> configure) {
             requireNewTool(name);
-            Objects.requireNonNull(configure, "configure");
-            ToolBuilder builder = new ToolBuilder();
+            Objects.requireNonNull(configure, "tools." + name + ".configure must not be null");
+            ToolBuilder builder = new ToolBuilder(name);
             configure.accept(builder);
             return toolRule(name, builder.build());
+        }
+
+        /**
+         * 同时声明工具的必需权限与可信租户绑定，其余参数仍使用现有 ToolBuilder。
+         * 不从工具名称推断权限，也不代表工具实现本身没有写入副作用。
+         */
+        public Builder tenantTool(
+                String name,
+                String permission,
+                String tenantParameter,
+                Consumer<ToolBuilder> configure) {
+            Objects.requireNonNull(configure, "configure");
+            return tool(
+                    name,
+                    tool -> {
+                        tool.requirePermission(permission).bindTenant(tenantParameter);
+                        configure.accept(tool);
+                    });
         }
 
         /** 接受现有工具规则，便于复用高级参数约束和审批需求配置。 */
@@ -111,18 +179,20 @@ public final class AgtGuards {
         public Builder contentRule(ContentRule rule) {
             Objects.requireNonNull(rule, "rule");
             if (rules.containsKey(rule.id())) {
-                throw new IllegalArgumentException("Duplicate content rule ID: " + rule.id());
+                throw invalid("contentRules." + rule.id(), "Duplicate content rule ID");
             }
             if (!POINTS.containsAll(rule.points())) {
-                throw new IllegalArgumentException(
+                throw invalid(
+                        "contentRules." + rule.id() + ".points",
                         "Content rule must bind to the six supported stages");
             }
             for (ContentRule existing : rules.values()) {
                 if (!Collections.disjoint(existing.points(), rule.points())
                         && !Collections.disjoint(
                                 existing.replacements().keySet(), rule.replacements().keySet())) {
-                    throw new IllegalArgumentException(
-                            "Duplicate or conflicting replacement in overlapping stages");
+                    throw invalid(
+                            "contentRules." + rule.id() + ".replacements",
+                            "Duplicate or conflicting replacement in overlapping stages; remove the repeated source");
                 }
             }
             rules.put(rule.id(), rule);
@@ -131,7 +201,8 @@ public final class AgtGuards {
 
         public StructuredPolicy buildPolicy() {
             if (rules.isEmpty() && tools.isEmpty()) {
-                throw new IllegalStateException("Configure at least one content or tool rule");
+                throw new IllegalStateException(
+                        "policy: Configure at least one content or tool rule before build");
             }
             StructuredPolicy.Builder policy = StructuredPolicy.builder(version).points(POINTS);
             for (Map.Entry<String, ToolRule> tool : tools.entrySet()) {
@@ -154,23 +225,26 @@ public final class AgtGuards {
         private Builder addDeny(Set<InterventionPoint> points, String... values) {
             Objects.requireNonNull(values, "values");
             if (values.length == 0) {
-                throw new IllegalArgumentException("Configure at least one denied text");
+                throw invalid("contentRules.denyText", "Configure at least one denied text");
             }
             List<String> denied = new ArrayList<>();
             for (String value : values) {
-                denied.add(requireText(value));
+                denied.add(requireText(value, "contentRules.denyText"));
             }
             if (new LinkedHashSet<>(denied).size() != denied.size()) {
-                throw new IllegalArgumentException("Duplicate denied text");
+                throw invalid(
+                        "contentRules.denyText", "Duplicate denied text; remove repeated entries");
             }
             return contentRule(
                     new ContentRule(newRuleId(), points, denied, Collections.emptyMap()));
         }
 
         private void requireNewTool(String name) {
-            Identifiers.require(name);
+            identifier(name, "tools.name");
             if (tools.containsKey(name)) {
-                throw new IllegalArgumentException("Duplicate tool: " + name);
+                throw invalid(
+                        "tools." + name,
+                        "Duplicate tool; combine its configuration into one declaration");
             }
         }
 
@@ -192,18 +266,31 @@ public final class AgtGuards {
         private final Map<String, ParameterRule> parameters = new LinkedHashMap<>();
         private final Set<String> required = new LinkedHashSet<>();
 
-        private ToolBuilder() {}
+        private final String toolName;
+
+        private ToolBuilder(String toolName) {
+            this.toolName = toolName;
+        }
+
+        private String location(String field) {
+            return "tools." + toolName + "." + field;
+        }
 
         public ToolBuilder requirePermission(String... values) {
-            Objects.requireNonNull(values, "permissions");
+            Objects.requireNonNull(values, location("permissions"));
             if (values.length == 0) {
-                throw new IllegalArgumentException("Configure at least one permission");
+                throw invalid(location("permissions"), "Configure at least one permission");
             }
+            Set<String> combined = new LinkedHashSet<>(permissions);
             for (String value : values) {
-                if (!permissions.add(Identifiers.require(value))) {
-                    throw new IllegalArgumentException("Duplicate permission: " + value);
+                if (!combined.add(identifier(value, location("permissions")))) {
+                    throw invalid(
+                            location("permissions"),
+                            "Duplicate permission; remove repeated entries");
                 }
             }
+            permissions.clear();
+            permissions.addAll(combined);
             return this;
         }
 
@@ -219,17 +306,57 @@ public final class AgtGuards {
             return parameter(name, ParameterRule.string(null), false);
         }
 
+        /**
+         * 批量声明必填字符串，所有名称验证成功后才写入当前工具。
+         */
+        public ToolBuilder requireStrings(String... names) {
+            return strings(true, names);
+        }
+
+        public ToolBuilder optionalStrings(String... names) {
+            return strings(false, names);
+        }
+
+        private ToolBuilder strings(boolean mandatory, String... names) {
+            Objects.requireNonNull(names, location("parameters"));
+            if (names.length == 0) {
+                throw invalid(location("parameters"), "Configure at least one string parameter");
+            }
+            Map<String, ParameterRule> added = new LinkedHashMap<>();
+            for (String name : names) {
+                identifier(name, location("parameters.name"));
+                if (parameters.containsKey(name) || added.containsKey(name)) {
+                    throw duplicateParameter(name);
+                }
+                added.put(name, ParameterRule.string(null));
+            }
+            parameters.putAll(added);
+            if (mandatory) {
+                required.addAll(added.keySet());
+            }
+            return this;
+        }
+
         public ToolBuilder parameter(String name, ParameterRule rule, boolean mandatory) {
-            Identifiers.require(name);
-            Objects.requireNonNull(rule, "rule");
+            identifier(name, location("parameters.name"));
+            Objects.requireNonNull(rule, location("parameters." + name) + " must not be null");
             if (parameters.containsKey(name)) {
-                throw new IllegalArgumentException("Duplicate parameter: " + name);
+                throw duplicateParameter(name);
             }
             parameters.put(name, rule);
             if (mandatory) {
                 required.add(name);
             }
             return this;
+        }
+
+        private IllegalArgumentException duplicateParameter(String name) {
+            ParameterRule existing = parameters.get(name);
+            String reason =
+                    existing != null && "tenantId".equals(existing.equalsContext())
+                            ? "Duplicate parameter; bindTenant already declares its parameter"
+                            : "Duplicate parameter; declare each parameter only once";
+            return invalid(location("parameters." + name), reason);
         }
 
         private ToolRule build() {
@@ -239,12 +366,24 @@ public final class AgtGuards {
         }
     }
 
-    private static String requireText(String value) {
-        Objects.requireNonNull(value, "text");
+    private static String requireText(String value, String location) {
+        Objects.requireNonNull(value, location + " must not be null");
         if (value.isEmpty()) {
-            throw new IllegalArgumentException("Text must not be empty");
+            throw invalid(location, "Text must not be empty");
         }
         return value;
+    }
+
+    private static String identifier(String value, String location) {
+        try {
+            return Identifiers.require(value);
+        } catch (IllegalArgumentException error) {
+            throw invalid(location, "Expected 1..128 characters from [a-zA-Z0-9_.:@/-]");
+        }
+    }
+
+    private static IllegalArgumentException invalid(String location, String reason) {
+        return new IllegalArgumentException(location + ": " + reason);
     }
 
     private static InterventionPoint point(GuardStage stage) {

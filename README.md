@@ -30,3 +30,5 @@ SDK 可通过 `GuardEngineFactory` 发布引擎，由业务应用显式 `.guardA
 配置是否生效与排错：[配置诊断指南](docs/configuration-diagnostics.md)，通过只读快照查看引擎来源、阶段 Guard 和流式配置校验状态。
 
 流式生命周期与可选 JMH 基准：[流式可靠性与性能记录](docs/streaming-performance.md)。基准模块只在 `-Pbenchmarks` 时构建。
+
+策略组合与批量配置：`configure(common)`、`tenantTool(...)`、批量脱敏和参数声明，见 [Fluent Builder 指南](docs/agt-fluent-api.md#复用公共配置与批量声明)。配置错误带工具/字段位置，批量失败不留下半成品规则。

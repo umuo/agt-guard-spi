@@ -17,10 +17,8 @@ GuardEngine engine = AgtGuards.builder()
         .denyText("DENIED")
         .maskInput("DEMO_PRIVATE_INPUT", "MASKED_INPUT")
         .maskToolOutput("DEMO_PRIVATE_TOOL", "MASKED_TOOL")
-        .tool("lookup", tool -> tool
-                .requirePermission("orders:read")
-                .bindTenant("tenant")
-                .requireString("orderId"))
+        .tenantTool("lookup", "orders:read", "tenant",
+                tool -> tool.requireStrings("orderId"))
         .build();
 ```
 
@@ -39,13 +37,16 @@ Builder 使用 Java 8 API。新建 Builder 后单线程配置，构建出的策�
 
 | 方法 | 语义 |
 | --- | --- |
+| `configure(configuration)` | 在草稿上应用可复用 Consumer，成功后提交快照；失败不修改接收者 |
 | `version(value)` | 策略版本，默认 code-v1；遵循 AGT 标识符校验 |
 | `denyText(values...)` | 六个检查阶段拒绝指定字面字符串；是匹配规则，不是语义检测 |
 | `denyTextAt(stage, values...)` | 仅在指定 GuardStage 拒绝 |
 | `maskInput(source, replacement)` | 在 AGENT_INPUT 替换字符串 |
 | `maskToolOutput(source, replacement)` | 在 TOOL_OUTPUT 替换字符串 |
+| `maskInput(map)` / `maskToolOutput(map)` / `maskAt(stage, map)` | 按 Map 迭代顺序批量替换，整个批次成功后才添加规则 |
 | `maskAt(stage, source, replacement)` | 指定阶段替换，受原 Provider 改写边界约束 |
 | `tool(name, configure)` | 声明工具规则并使用 ToolBuilder 配置 |
+| `tenantTool(name, permission, tenantParameter, configure)` | 等价于 tool + requirePermission + bindTenant，其他参数由回调声明 |
 | `contentRule(rule)` | 接入现有底层 ContentRule |
 | `toolRule(name, rule)` | 接入现有底层 ToolRule |
 | `buildPolicy()` | 返回 StructuredPolicy，便于检查、组合或自定义工厂 |
@@ -66,7 +67,7 @@ Builder 使用 Java 8 API。新建 Builder 后单线程配置，构建出的策�
 
 - `requirePermission` 声明全部必需权限，权限由可信 GuardContext 注入。
 - `bindTenant("tenant")` 自动声明必填字符串，并要求它等于可信 tenantId。不要再次 `requireString("tenant")`，那是重复参数。
-- `requireString` 声明必填字符串；`optionalString` 允许字段缺失，但存在时仍校验类型。
+- `requireString` 声明必填字符串；`optionalString` 允许字段缺失，但存在时仍校验类型。批量写法为 `requireStrings("id", "kind")` 和 `optionalStrings("note", "label")`；批次中任一名称非法或重复时不添加任何参数。
 - 字符串限制沿用 ParameterRule.string 的默认约束（当前最大 4096 个 Unicode code point），没有额外承诺非空或订单格式校验。
 - 高级类型或范围通过 `parameter(name, parameterRule, mandatory)` 传入原有 ParameterRule。
 - 常用工具 Builder 默认不要求审批；需要原有审批配置等高级行为时使用 `toolRule`，审批需求仍按当前 Provider 契约明确阻断。
@@ -115,3 +116,57 @@ GuardEngine engine = new GuardEngineBuilder()
 可在 JDK 8+ 下运行 `mvn verify`；JDK 17+ 自动启用 Spotless 检查。仅编译通过或设置 target=8 不等于实际 JDK 8 运行验证。
 
 相关文档：[AGT 接入说明](agt-implementation.md)、[自动装配指南](sdk-auto-configuration.md)、[设计契约](design-contract.md)。
+
+## 复用公共配置与批量声明
+
+```java
+Map<String, String> masks = new LinkedHashMap<>();
+masks.put("PRIVATE_EMAIL", "[EMAIL]");
+masks.put("PRIVATE_PHONE", "[PHONE]");
+Consumer<AgtGuards.Builder> common = guard -> guard
+        .denyText("DENIED", "FORBIDDEN")
+        .maskInput(masks);
+
+GuardEngine orders = AgtGuards.builder()
+        .version("orders-v1")
+        .configure(common)
+        .tenantTool("lookup", "orders:read", "tenant", tool -> tool
+                .requireStrings("orderId", "kind")
+                .optionalStrings("note", "label"))
+        .build();
+
+GuardEngine catalog = AgtGuards.builder()
+        .configure(common)
+        .tenantTool("search", "catalog:read", "tenant", tool -> tool.requireStrings("query"))
+        .build();
+```
+
+额外 imports 为 `java.util.Map`、`java.util.LinkedHashMap` 和 `java.util.function.Consumer`。示例全部兼容 Java 8。
+
+common 是普通 Consumer，每次 configure 时执行；若它捕获可变 Map，则下一次执行会读取 Map 的当时内容。已经应用的配置及已构建引擎不受后续 Map/草稿修改影响。configure 继承接收者的版本、规则及生成 ID 状态；回调只应操作传入的草稿。回调失败时接收者保持原样，外部系统副作用或通过其他引用修改接收者不在回滚保证内。
+
+批量脱敏按 Map 迭代顺序串联，与逐条 maskAt 相同。需要可复现顺序时使用 LinkedHashMap；不对 HashMap/Map.of 的遍历顺序作承诺。Map 为空会报错，空替换目标仍表示删除匹配内容，源字符串不能为空。它们仅做显式字面替换，不自动识别邮箱、手机号或 PII。
+
+tenantTool 要求显式传入权限及租户参数名；它不会根据 `read` 名称推断只读能力，不保证工具实现没有写入副作用。租户字段自动成为必填字符串，不能再次声明同名参数。新增方法仍拒绝未知工具和未知参数，也不会补造用户身份或权限。
+
+## 配置位置与失败恢复
+
+错误示例：
+
+```text
+tools.lookup.parameters.tenant: Duplicate parameter; bindTenant already declares its parameter
+version: Expected 1..128 characters from [a-zA-Z0-9_.:@/-]
+contentRules.agt.fluent.rule.2.replacements: Duplicate or conflicting replacement in overlapping stages; remove the repeated source
+```
+
+位置使用配置标识符，不在错误消息中打印字面匹配词、替换目标、非法标识符的原值或整个规则对象。调用方自己抛出的配置回调异常保持原样传播，SDK 不把其消息拼入额外诊断。
+
+configure、批量脱敏、批量权限和批量字符串参数均先验证再提交；失败后可修正并继续使用原 Builder。普通 tool 的回调失败也不会发布该工具。重复定义继续报错，不静默覆盖已配置的授权规则；现有单项 API 保留。
+
+## 本轮易用性优化规格
+
+范围：复用已有 Builder、ContentRule 与 ParameterRule，增加 `configure(Consumer<Builder>)` 公共配置组合、`tenantTool` 权限/租户快捷入口、Map 批量脱敏、requireStrings/optionalStrings 批量参数和带配置位置的错误提示。不增加依赖、策略语言、默认权限或自动推断身份。
+
+方案参考 [Spring Security Customizer](https://docs.spring.io/spring-security/site/docs/current/api/org/springframework/security/config/Customizer.html) 的回调组合方式，但直接使用本项目已有的 JDK Consumer，不引入 Spring。相较额外的预设模型，这能复用已有声明方法并保留闭合参数、规则顺序和快照契约。
+
+验收：公共配置可复用于多个引擎；配置回调及批量操作失败时不产生半成品规则；捕获回调 Builder 后再修改不影响接收者；快捷工具仍拒绝无权限、跨租户、未知工具/参数；脱敏按 Map 迭代顺序执行且不扩展阶段；错误定位字段而不打印匹配词、替换内容或任意回调异常；旧单项 API/YAML/SPI/流式回归；真实 Java 8/17 测试与示例本地 HTTP/SSE 验证。本轮不自动提交或推送。
