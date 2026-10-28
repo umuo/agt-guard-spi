@@ -1,5 +1,16 @@
 package org.agentguard.core;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.function.Consumer;
+
 import org.agentguard.GuardStage;
 import org.agentguard.context.GuardContext;
 import org.agentguard.decision.EnforcementMode;
@@ -10,6 +21,8 @@ import org.agentguard.decision.GuardDecision;
 import org.agentguard.decision.GuardPolicy;
 import org.agentguard.decision.RiskCategory;
 import org.agentguard.decision.RiskLevel;
+import org.agentguard.diagnostics.DiagnosableGuardEngine;
+import org.agentguard.diagnostics.GuardDiagnostics;
 import org.agentguard.engine.GuardEngine;
 import org.agentguard.engine.GuardOutcome;
 import org.agentguard.event.GuardEvent;
@@ -18,17 +31,12 @@ import org.agentguard.event.GuardRecord;
 import org.agentguard.exception.GuardBlockedException;
 import org.agentguard.spi.Guard;
 import org.agentguard.spi.GuardPolicyResolver;
+import org.agentguard.spi.GuardProvider;
+import org.agentguard.streaming.GuardStream;
+import org.agentguard.streaming.GuardStreamOptions;
+import org.agentguard.streaming.StreamingGuardEngine;
+import org.agentguard.streaming.StreamingGuardProvider;
 import org.agentguard.util.Immutables;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CancellationException;
 
 /**
  * {@link GuardEngine} 默认参考实现。
@@ -56,9 +64,10 @@ import java.util.concurrent.CancellationException;
  *   <li>审计上报：阶段执行结束（无论是放行、改写还是阻断）均会触发 {@link GuardEventListener}。</li>
  * </ol>
  */
-public class DefaultGuardEngine implements org.agentguard.streaming.StreamingGuardEngine {
+public class DefaultGuardEngine implements StreamingGuardEngine, DiagnosableGuardEngine {
 
     private final GuardStreamingSupport streaming;
+    private final List<GuardProvider> providers;
 
     private final Map<GuardStage, List<Guard<?>>> guardsByStage;
     private final GuardPolicyResolver policyResolver;
@@ -72,7 +81,8 @@ public class DefaultGuardEngine implements org.agentguard.streaming.StreamingGua
 
     public DefaultGuardEngine(List<Guard<?>> guards,
             GuardPolicyResolver policyResolver, List<GuardEventListener> listeners,
-            List<org.agentguard.spi.GuardProvider> providers) {
+            List<GuardProvider> providers) {
+        this.providers = Immutables.list(providers);
         this.streaming = new GuardStreamingSupport(guards, providers,
                 policyResolver == null || policyResolver == GuardPolicyResolver.defaults());
         this.guardsByStage = indexGuards(guards);
@@ -81,15 +91,33 @@ public class DefaultGuardEngine implements org.agentguard.streaming.StreamingGua
     }
 
     @Override
-    public void validateStreaming(org.agentguard.streaming.GuardStreamOptions options) {
+    public void validateStreaming(GuardStreamOptions options) {
         streaming.validate(options);
     }
 
     @Override
-    public org.agentguard.streaming.GuardStream openStream(
-            org.agentguard.streaming.GuardStreamOptions options, GuardContext context,
-            java.util.function.Consumer<String> output, java.util.function.Consumer<Throwable> failure) {
+    public GuardStream openStream(
+            GuardStreamOptions options, GuardContext context,
+            Consumer<String> output, Consumer<Throwable> failure) {
         return streaming.open(options, context, output, failure);
+    }
+
+    @Override
+    public GuardDiagnostics diagnostics() {
+        List<GuardDiagnostics.Provider> providerInfo = new ArrayList<GuardDiagnostics.Provider>();
+        for (GuardProvider provider : providers) {
+            providerInfo.add(new GuardDiagnostics.Provider(
+                    provider.name(), provider.getClass().getName(), provider.policySource(),
+                    provider instanceof StreamingGuardProvider));
+        }
+        List<GuardDiagnostics.Rule> rules = new ArrayList<GuardDiagnostics.Rule>();
+        for (GuardStage stage : GuardStage.values()) {
+            for (Guard<?> guard : guardsByStage.get(stage)) {
+                rules.add(new GuardDiagnostics.Rule(guard.id(), stage, guard.order()));
+            }
+        }
+        return new GuardDiagnostics(getClass().getName(), true,
+                policyResolver != GuardPolicyResolver.defaults(), true, providerInfo, rules);
     }
 
     public static GuardEngineBuilder builder() {

@@ -23,6 +23,7 @@ import org.agentguard.decision.Finding;
 import org.agentguard.decision.GuardDecision;
 import org.agentguard.decision.RiskCategory;
 import org.agentguard.decision.RiskLevel;
+import org.agentguard.diagnostics.GuardDiagnostics.PolicySource;
 import org.agentguard.spi.Guard;
 
 /**
@@ -31,6 +32,7 @@ import org.agentguard.spi.Guard;
  */
 public final class AgtGuardProvider implements org.agentguard.streaming.StreamingGuardProvider {
     private final PolicyEvaluator evaluator;
+    private final PolicySource policySource;
     public static final String POLICY_PATH_PROPERTY = "agentguard.agt.policy-path";
     public static final String POLICY_PATH_ENV = "AGENTGUARD_AGT_POLICY_PATH";
     private final List<Guard<?>> guards;
@@ -39,7 +41,16 @@ public final class AgtGuardProvider implements org.agentguard.streaming.Streamin
         this(configuredPolicy());
     }
 
+    private AgtGuardProvider(LoadedPolicy loaded) {
+        this(loaded.policy, loaded.source);
+    }
+
     public AgtGuardProvider(PolicyEvaluator evaluator) {
+        this(evaluator, PolicySource.PROGRAMMATIC);
+    }
+
+    private AgtGuardProvider(PolicyEvaluator evaluator, PolicySource policySource) {
+        this.policySource = policySource;
         this.evaluator = Objects.requireNonNull(evaluator, "evaluator");
         List<Guard<?>> configured = new ArrayList<>();
         for (GuardStage stage : GuardStage.values()) {
@@ -53,16 +64,36 @@ public final class AgtGuardProvider implements org.agentguard.streaming.Streamin
         guards = Java8.copyList(configured);
     }
 
-    private static StructuredPolicy configuredPolicy() {
+    @Override
+    public PolicySource policySource() {
+        return policySource;
+    }
+
+    /**
+     * 保持策略对象与一次读取取得的来源一致，不保存或暴露配置路径。
+     */
+    private static final class LoadedPolicy {
+        private final StructuredPolicy policy;
+        private final PolicySource source;
+
+        private LoadedPolicy(StructuredPolicy policy, PolicySource source) {
+            this.policy = policy;
+            this.source = source;
+        }
+    }
+
+    private static LoadedPolicy configuredPolicy() {
         String path = System.getProperty(POLICY_PATH_PROPERTY);
+        PolicySource source = PolicySource.SYSTEM_PROPERTY;
         if (path == null) {
             path = System.getenv(POLICY_PATH_ENV);
+            source = PolicySource.ENVIRONMENT;
         }
         if (path == null || Java8.isBlank(path)) {
             throw new IllegalStateException(
                     "Configure " + POLICY_PATH_PROPERTY + " or " + POLICY_PATH_ENV);
         }
-        return StructuredPolicy.fromPath(Paths.get(path));
+        return new LoadedPolicy(StructuredPolicy.fromPath(Paths.get(path)), source);
     }
 
     @Override

@@ -55,3 +55,29 @@ CLAUDE.md
 /jdk/
 /.tasks/
 /.explyt/
+
+# Local environment variants; only sanitized templates may be shared
+.env.*
+!.env.example
+!.env.template
+
+# Secrets, credentials and personal runtime configuration
+/secrets/
+/.secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+/config/*.local.*
+/.codex/config.toml
+AGENTS.local.md
+HANDOFF.local.md
+
+# Local caches, generated logs and transfer archives
+.m2/
+*.log
+*.bundle
+__pycache__/
+*.pyc

@@ -26,3 +26,5 @@ SDK 可通过 `GuardEngineFactory` 发布引擎，由业务应用显式 `.guardA
 调用链与源码调试：[LangChain4j 与 Agent Guard AGT 调用链及调试指南](docs/langchain4j-agt-call-chain.md)。
 
 纯代码便捷配置：[AGT Fluent Builder](docs/agt-fluent-api.md)，使用 `AgtGuards.builder()` 声明内容、脱敏和工具规则，`build()` 直接得到引擎。
+
+配置是否生效与排错：[配置诊断指南](docs/configuration-diagnostics.md)，通过只读快照查看引擎来源、阶段 Guard 和流式配置校验状态。

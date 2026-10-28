@@ -2,6 +2,8 @@ package org.agentguard.spi;
 
 import java.util.Collection;
 
+import org.agentguard.diagnostics.GuardDiagnostics.PolicySource;
+
 /**
  * Guard 提供者 —— 安全 SDK 的注册入口。
  *
@@ -21,6 +23,13 @@ public interface GuardProvider {
     /** 多个 Provider 的加载顺序，越小越先；仅影响注册顺序，Guard 执行顺序由 {@link Guard#order()} 决定。 */
     default int order() {
         return 0;
+    }
+
+    /**
+     * 返回策略来源类别，不返回文件路径或策略内容；第三方实现默认未知。
+     */
+    default PolicySource policySource() {
+        return PolicySource.UNKNOWN;
     }
 
     /** 本 Provider 提供的全部 Guard。每次调用应返回相同的实例集合。 */
