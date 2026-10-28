@@ -1,7 +1,10 @@
 package org.agentguard.agt;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -202,6 +205,51 @@ public class GuardStreamingTest {
             stream.seal("\uD83D\uDE00ok");
             stream.complete("\uD83D\uDE00ok");
             assertEquals("\uD83D\uDE00ok", output.toString());
+        }
+    }
+
+    @Test
+    public void sealFailureNotifiesOnceAndStopsFurtherOutput() {
+        List<Throwable> errors = new ArrayList<>();
+        StringBuilder output = new StringBuilder();
+        try (GuardStream stream =
+                engine().openStream(
+                                GuardStreamOptions.window(64, 60000, 128),
+                                context(),
+                                output::append,
+                                errors::add)) {
+            stream.accept("SECRET");
+            assertThrows(GuardBlockedException.class, () -> stream.seal("SECRET"));
+            assertEquals(1, errors.size());
+            stream.accept("late");
+            assertThrows(GuardExecutionException.class, () -> stream.complete("SECRET"));
+            assertEquals(1, errors.size());
+            assertEquals("", output.toString());
+        }
+    }
+
+    @Test
+    public void closingWindowStopsItsActualTimerThread() throws Exception {
+        java.util.concurrent.CountDownLatch emitted = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicReference<Thread> timer =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<Throwable> failure =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        try (GuardStream stream =
+                engine().openStream(
+                                GuardStreamOptions.window(32, 10, 64),
+                                context(),
+                                text -> {
+                                    timer.set(Thread.currentThread());
+                                    emitted.countDown();
+                                },
+                                failure::set)) {
+            stream.accept("abcdefghijkl");
+            assertTrue(emitted.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            stream.close();
+            timer.get().join(5000);
+            assertFalse(timer.get().isAlive());
+            assertNull(failure.get());
         }
     }
 }

@@ -28,3 +28,5 @@ SDK 可通过 `GuardEngineFactory` 发布引擎，由业务应用显式 `.guardA
 纯代码便捷配置：[AGT Fluent Builder](docs/agt-fluent-api.md)，使用 `AgtGuards.builder()` 声明内容、脱敏和工具规则，`build()` 直接得到引擎。
 
 配置是否生效与排错：[配置诊断指南](docs/configuration-diagnostics.md)，通过只读快照查看引擎来源、阶段 Guard 和流式配置校验状态。
+
+流式生命周期与可选 JMH 基准：[流式可靠性与性能记录](docs/streaming-performance.md)。基准模块只在 `-Pbenchmarks` 时构建。

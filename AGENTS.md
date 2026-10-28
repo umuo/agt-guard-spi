@@ -21,6 +21,8 @@
 
 构建使用 Maven；策略序列化使用 Jackson（agt-core 的 BOM 为 2.22.1）与 YAML 支持。项目没有独立 Web 服务启动入口，运行演示位于关联示例仓库。
 
+可选 `agent-guard-benchmarks` 仅在 `-Pbenchmarks` 时参与构建，使用 JMH 1.37 测量流式内核及 SDK 生命周期，不属于生产 SDK 依赖。
+
 SDK 坐标版本为 `org.agentguard:*:1.0.0-SNAPSHOT`；复制模块为 `io.agt:agt-core:0.6.0-SNAPSHOT`。不得同时混用另一个同坐标 AGT 实现。保留 `agt-core/LICENSE`、`NOTICE` 和 `UPSTREAM.md`。
 
 框架侧仅依赖 spec，宿主引入具体 SDK。已适配的 LangChain4j 在显式 `.guardAutoDiscovery(true)` 时经 `GuardEngineFactory` → `DefaultGuardEngineFactory` → `GuardProvider` 创建引擎；默认不开启。手动 `.guardEngine(engine)` 可直接启用。core 自身不注册自动工厂。
@@ -78,6 +80,8 @@ mvn clean verify
 - 发布 Java 8 兼容结论需真实 JDK 8 回归，并检查产物 class major 52。JDK 17 单次通过不替代该结论。
 - 关联框架回归与真实 LLM 验证分别报告；本地 HTTP/SSE 桩不能算真实 LLM。跳过测试的依赖安装不能算验收。
 - 不为获得绿灯关闭规则；未运行的检查明确写未运行，不能声称通过 Sonar 或全框架测试。
+
+性能验证使用 [流式基准指南](docs/streaming-performance.md) 的 JMH/探针命令；保留输入规模、JDK、预热、fork 和误差，不以一次计时或分配量代替稳定延迟/峰值堆结论。
 
 ## 跨 Mac 交接与收尾
 

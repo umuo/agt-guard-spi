@@ -46,6 +46,7 @@ public final class ChunkBufferEngine implements AutoCloseable {
     private long released;
     private long checkedThrough;
     private int unchecked;
+    private long uncheckedStarted;
     private boolean sealed;
     private boolean closed;
     private byte[] expectedDigest;
@@ -148,19 +149,27 @@ public final class ChunkBufferEngine implements AutoCloseable {
                 pending.append(c);
                 update(digest, c);
                 received++;
+                if (unchecked == 0) {
+                    uncheckedStarted = System.nanoTime();
+                }
                 unchecked++;
                 if (unchecked >= options.chunkCharacters()
                         || options.boundaries().indexOf(c) >= 0) {
                     check(false);
                 }
-                if (!closed && unchecked > 0 && timer == null) {
-                    long generation = ++timerGeneration;
-                    timer =
-                            scheduler.schedule(
-                                    () -> dispatchTimeout(generation),
-                                    options.maxWait().toNanos(),
-                                    TimeUnit.NANOSECONDS);
-                }
+            }
+            // 一次回调内的阈值检查均同步完成，仅为剩余未检查内容安排定时器。
+            // 保留已有期限，并扣除剩余文本在本次回调中已经等待的时间。
+            if (!closed && unchecked > 0 && timer == null) {
+                long generation = ++timerGeneration;
+                long remaining =
+                        Math.max(
+                                0,
+                                options.maxWait().toNanos()
+                                        - (System.nanoTime() - uncheckedStarted));
+                timer =
+                        scheduler.schedule(
+                                () -> dispatchTimeout(generation), remaining, TimeUnit.NANOSECONDS);
             }
         } catch (Throwable error) {
             fail(error);
@@ -256,22 +265,27 @@ public final class ChunkBufferEngine implements AutoCloseable {
         if (closed) {
             throw new GovernanceException("stream_terminated");
         }
-        if (!sealed) {
-            sealed = true;
-            cancelTimer();
-            expectedDigest = digest.digest();
-        }
-        MessageDigest actual = digest();
-        String body = text == null ? "" : text;
-        for (int i = 0; i < body.length(); i++) {
-            update(actual, body.charAt(i));
-        }
-        if (body.length() != received || !MessageDigest.isEqual(expectedDigest, actual.digest())) {
-            close();
-            throw new GovernanceException("stream_text_mismatch");
-        }
-        if (unchecked > 0) {
-            check(false);
+        try {
+            if (!sealed) {
+                sealed = true;
+                cancelTimer();
+                expectedDigest = digest.digest();
+            }
+            MessageDigest actual = digest();
+            String body = text == null ? "" : text;
+            for (int i = 0; i < body.length(); i++) {
+                update(actual, body.charAt(i));
+            }
+            if (body.length() != received
+                    || !MessageDigest.isEqual(expectedDigest, actual.digest())) {
+                throw new GovernanceException("stream_text_mismatch");
+            }
+            if (unchecked > 0) {
+                check(false);
+            }
+        } catch (Throwable error) {
+            fail(error);
+            throw error;
         }
     }
 

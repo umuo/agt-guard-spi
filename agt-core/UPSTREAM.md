@@ -11,3 +11,5 @@
 
 构建出的 JAR 在 `META-INF/` 中包含原 LICENSE 与 NOTICE。
 保留 `io.agt` 包名和制品坐标；应用应只选用本 reactor 构建的一个 agt-core，避免与另一个同坐标版本混用。
+
+流式缓冲本地修复：seal 检查失败统一执行关闭与单次错误通知；accept 合并回调内的重复定时器调度并保留原超时期限。变更、回归与性能证据见 [流式性能记录](../docs/streaming-performance.md)。

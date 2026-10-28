@@ -6,11 +6,11 @@
 
 | 仓库 | 分支 | 当前基线提交 | 本次开始时状态 |
 | --- | --- | --- | --- |
-| 本仓库 `agent-guard` | master | `3bc019a` | 干净，无远端配置、无 upstream |
-| 关联 `langchain4j` | main | `d7c5c5648` | 干净，相对本地 origin/main 引用领先 4 个提交；未 fetch，不能认定远端实时状态 |
-| 关联 `agent-guard-example` | main | `f9942ac` | 干净 |
+| 本仓库 `agent-guard` | master | 本次流式优化提交（父提交 `9f79592`；准确 HEAD 用 git log 核对） | 流式修复、基准与交接更新纳入本次本地提交，无远端配置 |
+| 关联 `langchain4j` | main | `5fcd835fa` | 干净；未 fetch，不能认定远端实时状态 |
+| 关联 `agent-guard-example` | main | `a0eee32` | 干净 |
 
-上述 Git 基线仍未变化；表格“本次开始时状态”描述建立交接机制前的状态。当前三个仓库有本轮配置诊断的未提交改动：SDK 新增诊断 API、元信息、测试与文档；LangChain4j 新增构建诊断与回归；示例显示摘要并增加集成测试。此前的 AGENTS/HANDOFF/PLANS 和 .gitignore 也仍未提交。未提交、未推送；POM 未修改。以后更新此文件时用实际提交替换基线。
+用户已授权提交上一轮代码并启动下一步优化。配置诊断和交接机制已分别提交到上述三个本地 HEAD，未推送。本轮新增变更仅在 SDK 仓库：流式封口故障清理、定时器合并、生命周期测试、可选 JMH 模块与测量文档；本轮新增内容与交接更新一并纳入本次本地提交，提交号以 `git log -1 --oneline` 为准。关联仓库未新增源码改动，使用安装后的 SDK 回归。
 
 ## 最近工作和已完成能力
 
@@ -22,10 +22,13 @@
 - 已建立会话入口、交接更新规则、长期计划与跨 Mac 恢复步骤，并补充忽略规则。
 - 本轮已实现配置诊断：可选 DiagnosableGuardEngine、不可变 GuardDiagnostics、AGT 策略来源类别，以及 LangChain4j builder.guardDiagnostics()。区分关闭、未发现 SDK、手动/SPI、失败类别、已校验流式模式。快照不执行 Guard，默认摘要不含路径、策略或任意标签。
 - 同步及流式示例已展示摘要；新增真实 SPI/环境变量和示例 classpath 集成回归。实现与使用方式见 [配置诊断契约](docs/configuration-diagnostics.md)。
+- 上述诊断与交接已提交：SDK `9f79592`、框架 `5fcd835fa`、示例 `a0eee32`。
+- 本轮已修复 seal 拒绝/审计异常/正文不一致的资源清理与单次错误通知；accept 为剩余未检查内容最多安排一次定时器，保留原超时起点。
+- 新增九个内核生命周期回归和两个 SDK 回归；可选 benchmarks profile 包含 JMH 与并发指标探针。前后数据、测量条件和局限见 [流式性能记录](docs/streaming-performance.md)。
 
 ## 进行中的任务
 
-本轮配置诊断已实现并通过下述测试；代码和交接文件留在工作区，未提交或推送。没有其他正在实施的业务任务。下一阶段流式性能/可靠性优化仍为待选任务。
+本轮流式可靠性修复及基准已实现并通过下述验证，代码和文档纳入本次本地提交。上一轮诊断已提交，均未推送。当前没有进行中的代码任务；下一项建议为 P1 策略易用性，尚未实施。
 
 ## 重要技术决策
 
@@ -38,16 +41,25 @@
 
 ## 未解决问题与明确限制
 
-- SDK 没有配置远端，本轮交接文件也未提交，因此当前尚未通过 Git 迁移到另一台 Mac。后续同步需要用户授权。
+- SDK 没有配置远端；交接机制已在 `9f79592` 提交，本轮最新更新随流式修复一并本地提交。当前尚未同步到另一台 Mac，后续推送或迁移仍需用户授权。
 - 已有配置快照；它展示已注册 Guard，不展示 AGT 内部内容条目，也不证明某次请求执行了全部规则。第三方引擎未实现可选接口或元信息读取故障时详情未知。动态策略和 supports 的请求级生效情况需通过运行时事件查看。缺策略仍初始化失败。
 - WINDOW 有规则组合限制；Flow.Publisher、媒体及 Spring AI 适配尚未实现。
 - 自动工厂只在初始化时读取配置，无策略热加载。AGT 桥接审批需求当前阻断；预算等执行治理没有接入宿主生命周期。
 - LangChain4j 仍依赖修改过的 fork；能否抽出独立适配模块需要验证公开扩展点，尚无验证结论。
 - 仓库未跟踪 Maven Wrapper 或 CI 工作流；构建依赖机器上的 Maven/JDK。跨仓安装脚本要求 Maven 3.8+，不能依赖本机 Maven 缓存自动迁移。
-- 未验证生产负载、外部真实 LLM、整个 LangChain4j reactor 或 Sonar。
+- 本轮仅测量本机短基准与受控并发探针，耗时误差范围有重叠；未验证持续生产负载、跨机器稳定性能、外部真实 LLM、整个 LangChain4j reactor 或 Sonar。
 - 老文档保留各阶段历史测试数（如 121/164/9），不能拿来代表当前总数。
 
 ## 测试证据
+
+### 本轮流式可靠性与基准（2026-10-28）
+
+- 修复前新 `ChunkBufferLifecycleTest` 运行 9 项，其中 4 项按预期失败，复现 seal 后缓冲未清空、错误未通知和 256 次重复调度；修复后全部通过。
+- 真实 ARM64 Zulu JDK 8：`mvn -B -Pbenchmarks clean verify`；JDK 17：`mvn -B -Pbenchmarks clean install`。SDK 均 160 项通过（core 25、agt-core 96、Provider 39），0 失败、0 错误、0 跳过；可选 JMH 模块在两种 JDK 均构建成功。JDK 17 Spotless 通过；5 个本轮 Java 文件通过语法树花括号、多行中文类型 Javadoc、无通配符导入与 Tab 检查；文档链接/围栏、XML 嵌套和 diff 检查通过。四个生产 JAR 的 150 个 class 全为 major 52，AGT LICENSE/NOTICE 保留。
+- 先完成 SDK install，再运行关联框架下述定向命令：153 项通过；示例 `mvn -B -nsu test`：13 项通过。没有调用外部 LLM。
+- JMH 窗口内核前后测量使用相同 JDK 17、128 MiB 堆、2 fork、3 次 300ms 预热和 5 次 300ms 测量，65,536 字符响应/1,024 字符回调。分配约减少 32.8%；耗时均值下降但误差范围重叠，原始样本已保存在 docs/benchmarks。
+- 八会话探针：任务数 8192 → 0、缓冲高水位均 69 UTF-16、线程剩余均 0；这是固定对齐回调场景，不适用于所有输入。STRICT/WINDOW SDK 基准另以四线程短跑验证入口，不作为性能定论。
+
 
 ### 本轮配置诊断（2026-10-28）
 
@@ -84,7 +96,7 @@ JAVA_HOME="$(/usr/libexec/java_home -v 17)" mvn -B verify
 
 ## 换 Mac 的恢复步骤
 
-1. 先同步三个仓库的目标提交和交接文件。当前未执行任何提交、配置远端或推送；仅复制 Codex 聊天不能迁移源码。
+1. 先同步三个仓库的目标提交和交接文件。上一轮已本地提交，但未配置 SDK 远端或推送；迁移前仍须检查是否有新的未提交文件；未提交变更不会随 Git 迁移。仅复制 Codex 聊天不能迁移源码。
 2. 可以把三个仓库放在同一父目录：`agent-guard/`、`langchain4j/`、`agent-guard-example/`；路径可含空格，命令引用变量时始终加双引号。
 3. 在新 Mac 安装 JDK 17、Maven 3.8+；需要验收 SDK Java 8 时再安装 JDK 8。执行 `git status --short --branch`、`git log -1 --oneline` 与 `mvn -v`，核对版本表。
 4. 在 SDK 根目录执行 `mvn verify`。集成运行需要从源码重新安装本机 SNAPSHOT，不复制旧机器的 target 或整个 Maven 缓存。
@@ -116,12 +128,13 @@ git clone -b master ./agent-guard.bundle agent-guard
 
 ## 下一步任务
 
-配置诊断已交付。建议下一轮盘点流式边界测试覆盖、补充性能与生命周期基准，再决定具体优化。后续拆分和验收见 [PLANS.md](PLANS.md)。尚未实施的事项仍为候选路线。
+配置诊断已提交，流式生命周期修复与可选基准本轮已交付。后续可扩大测量矩阵/长时间负载，或进入 P1 策略易用性；后续拆分和验收见 [PLANS.md](PLANS.md)。尚未实施的事项仍为候选路线。
 
 ## 相关文件
 
 - [协作约定](AGENTS.md)、[长期计划](PLANS.md)、[项目入口](README.md)、[构建配置](pom.xml)。
 - [配置诊断契约与用法](docs/configuration-diagnostics.md)：新增规范接口位于 `agent-guard-spec/src/main/java/org/agentguard/diagnostics/`；SDK 新测试为 `GuardDiagnosticsTest`、`AgtDiagnosticsTest`；框架修改 `AiServices`、`AiServiceContext`、`DefaultAiServices` 和 guard 包的自动配置/诊断类；示例新测试为 `example.GuardDiagnosticsTest`。
+- [流式性能记录](docs/streaming-performance.md)：`agt-core` 的 ChunkBufferEngine/ChunkBufferLifecycleTest，SDK GuardStreamingTest，独立 `agent-guard-benchmarks` 模块及 docs/benchmarks 测量数据。
 - [设计契约](docs/design-contract.md)、[自动装配](docs/sdk-auto-configuration.md)、[流式设计](docs/streaming-design.md)。
 - [Fluent API](docs/agt-fluent-api.md)、[AGT 实现边界](docs/agt-implementation.md)、[调用链](docs/langchain4j-agt-call-chain.md)。
 - 核心入口：`agent-guard-core/src/main/java/org/agentguard/core/DefaultGuardEngine.java`、`DefaultGuardEngineFactory.java`、`GuardEngineBuilder.java`（后两者同目录）。

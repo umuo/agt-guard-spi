@@ -20,6 +20,12 @@
 
     <profiles>
         <profile>
+            <id>benchmarks</id>
+            <modules>
+                <module>agent-guard-benchmarks</module>
+            </modules>
+        </profile>
+        <profile>
             <id>agt</id>
         </profile>
         <profile>
@@ -39,6 +45,7 @@
                                 <includes>
                                     <include>agt-core/src/**/*.java</include>
                                     <include>agent-guard-agt/src/**/*.java</include>
+                                    <include>agent-guard-benchmarks/src/**/*.java</include>
                                 </includes>
                                 <googleJavaFormat>
                                     <version>1.22.0</version>

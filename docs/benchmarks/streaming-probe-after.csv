@@ -1,0 +1,2 @@
+characters,callback,concurrency,meanFirstReleaseUs,meanCheckUs,maxBufferedUtf16,scheduledTasks,peakTimerThreads,remainingTimerThreads
+65536,1024,8,2250.739,5.043,69,0,0,0
