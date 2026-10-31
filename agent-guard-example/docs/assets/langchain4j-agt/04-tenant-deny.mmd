@@ -1,0 +1,22 @@
+sequenceDiagram
+    autonumber
+    participant TS as ToolService
+    participant E as DefaultGuardEngine
+    participant G as AGT PolicyGuard
+    participant P as StructuredPolicy
+    participant V as ParameterRule
+    participant O as GuardOutcome
+    TS->>E: checkToolInput：tenant-B 的 lookup
+    E->>G: check(payload, context)
+    G->>G: 构建可信 tenant-A 身份及 PolicyRequest
+    G->>P: evaluate(request)
+    P->>P: validateEffective：检查工具及权限
+    P->>V: validate：equalsContext = tenantId
+    V-->>P: 抛 GovernanceException(context_binding_denied)
+    P-->>G: PolicyDecision.DENY
+    G-->>E: GuardDecision.BLOCK
+    E->>E: 记录发现，短路后续 Guard
+    E-->>TS: BLOCK 的 GuardOutcome
+    TS->>O: payloadOrThrow()
+    O-->>TS: 抛 GuardBlockedException
+    Note over TS,O: lookup 方法体未执行，工具副作用为 0

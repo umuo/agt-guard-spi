@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    participant App as 业务应用
+    participant LC as LangChain4j 自动装配
+    participant AF as AgtGuardEngineFactory
+    participant DF as DefaultGuardEngineFactory
+    participant P as AgtGuardProvider
+    participant E as DefaultGuardEngine
+    App->>LC: AiServices.build / validate
+    LC->>LC: 第一次 SPI：发现 GuardEngineFactory
+    Note over LC: 自动发现已开启且无显式引擎
+    LC->>AF: create()
+    AF->>DF: create()
+    DF->>DF: 第二次 SPI：发现 GuardProvider
+    DF->>P: SPI 实例化：调用无参构造器
+    P->>P: 读取 YAML，创建 StructuredPolicy
+    P->>P: 创建共享 evaluator 的六个 PolicyGuard
+    DF->>P: guards()
+    P-->>DF: 六阶段 Guard 集合
+    DF->>E: new DefaultGuardEngine(guards, null, null)
+    E->>E: 按 stage 分组，阶段内按 order / id 排序
+    E-->>DF: 引擎实例
+    DF-->>AF: GuardEngine
+    AF-->>LC: GuardEngine
+    LC->>LC: 保存 context.guardEngine 并交给 ToolService
+    LC-->>App: 返回可调用的 AI Service

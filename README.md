@@ -31,4 +31,6 @@ SDK 可通过 `GuardEngineFactory` 发布引擎，由业务应用显式 `.guardA
 
 流式生命周期与可选 JMH 基准：[流式可靠性与性能记录](docs/streaming-performance.md)。基准模块只在 `-Pbenchmarks` 时构建。
 
+可运行的 LangChain4j 集成示例位于 [agent-guard-example](agent-guard-example/README.md)，包含 YAML/SPI、纯代码策略和流式案例。示例使用 JDK 17，独立构建，不参与 SDK 默认 reactor；安装脚本默认使用本仓库 SDK 和同级目录的修改版 LangChain4j。
+
 策略组合与批量配置：`configure(common)`、`tenantTool(...)`、批量脱敏和参数声明，见 [Fluent Builder 指南](docs/agt-fluent-api.md#复用公共配置与批量声明)。配置错误带工具/字段位置，批量失败不留下半成品规则。

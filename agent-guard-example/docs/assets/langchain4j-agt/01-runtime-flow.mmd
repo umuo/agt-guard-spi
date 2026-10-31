@@ -1,0 +1,19 @@
+flowchart TD
+    U["assistant.chat：用户请求"] --> C["attach：创建请求级 GuardContext / AgentGuardSession"]
+    C --> AI["AGENT_INPUT：检查和改写用户输入"]
+    AI --> MI["MODEL_INPUT：检查完整模型请求"]
+    MI --> LLM["实际调用 LLM"]
+    LLM --> MO["MODEL_OUTPUT：检查文字与工具调用"]
+    MO --> Q{"是否调用工具？"}
+    Q -->|是| TI["TOOL_INPUT：校验工具、权限与租户参数"]
+    TI --> T["执行 lookup 工具"]
+    T --> TO["TOOL_OUTPUT：检查和脱敏工具结果"]
+    TO --> MI
+    Q -->|否| AO["AGENT_OUTPUT：检查最终业务输出"]
+    AO --> R["返回有效结果"]
+    AI -.-> B["任一检查命中有效 BLOCK：终止后续流程"]
+    MI -.-> B
+    MO -.-> B
+    TI -.-> B
+    TO -.-> B
+    AO -.-> B

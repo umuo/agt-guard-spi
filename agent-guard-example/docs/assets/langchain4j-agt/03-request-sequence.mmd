@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    participant App as 业务应用
+    participant LC as DefaultAiServices / Bridge
+    participant M as GuardedChatModel
+    participant TS as ToolService
+    participant E as GuardEngine
+    participant LLM as 真实 LLM
+    participant Tool as lookup 工具
+    App->>LC: assistant.chat(prompt)
+    LC->>LC: attach：创建请求级上下文与会话
+    LC->>E: checkAgentInput(input, context)
+    E-->>LC: GuardOutcome
+    LC->>LC: 应用改写并落实阻断
+    LC->>M: chat(request)
+    M->>E: checkModelInput(request, context)
+    E-->>M: 有效请求 / 阻断
+    M->>LLM: delegate.chat(有效请求)
+    LLM-->>M: 包含 lookup 调用的响应
+    M->>E: checkModelOutput(response, context)
+    E-->>M: 有效响应 / 阻断
+    M-->>LC: 已检查的工具调用
+    LC->>TS: 执行工具调用
+    TS->>TS: requireToolAllowed：校验本轮允许集合
+    TS->>E: checkToolInput(call, context)
+    E-->>TS: 有效参数 / 阻断
+    TS->>Tool: lookup(有效参数)
+    Tool-->>TS: 原始工具结果
+    TS->>E: checkToolOutput(result, context)
+    E-->>TS: 有效工具结果 / 阻断
+    TS->>M: chat(包含有效工具结果的新请求)
+    M->>E: checkModelInput
+    E-->>M: 有效请求
+    M->>LLM: delegate.chat(有效请求)
+    LLM-->>M: 最终回答
+    M->>E: checkModelOutput
+    E-->>M: 有效响应
+    M-->>TS: 已检查的模型回答
+    TS-->>LC: 工具循环结束
+    LC->>E: checkAgentOutput(output, context)
+    E-->>LC: GuardOutcome
+    LC->>LC: payloadOrThrow 并应用最终改写
+    LC-->>App: 返回业务结果
+    Note over LC,Tool: 图中为正常的一次工具循环；任一检查阻断时不执行后续步骤

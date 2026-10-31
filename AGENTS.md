@@ -19,7 +19,7 @@
 | `agent-guard-agt` | 依赖 core 与 agt-core；AGT 六阶段投影、策略桥接、Fluent Builder、SPI 工厂、窗口检查 |
 | `agt-core` | 复制并适配到 Java 8 的 AGT 策略及治理源码，保留 `io.agt` 包名与独立坐标 |
 
-构建使用 Maven；策略序列化使用 Jackson（agt-core 的 BOM 为 2.22.1）与 YAML 支持。项目没有独立 Web 服务启动入口，运行演示位于关联示例仓库。
+构建使用 Maven；策略序列化使用 Jackson（agt-core 的 BOM 为 2.22.1）与 YAML 支持。项目没有独立 Web 服务启动入口，运行演示位于本仓库 `agent-guard-example/`。示例为独立 Maven 应用、要求 JDK 17，不加入 SDK 默认 reactor；框架源码仍位于关联 LangChain4j 仓库。
 
 可选 `agent-guard-benchmarks` 仅在 `-Pbenchmarks` 时参与构建，使用 JMH 1.37 测量流式内核及 SDK 生命周期，不属于生产 SDK 依赖。
 

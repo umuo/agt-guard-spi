@@ -1,0 +1,39 @@
+apiVersion: agt.java/v1
+version: demo-v1
+interventionPoints:
+    - input
+    - pre_model_call
+    - post_model_call
+    - pre_tool_call
+    - post_tool_call
+    - output
+# AGT 文档格式要求预算字段；当前 Provider 不执行预算记账。
+budget:
+    maxModelCalls: 20
+    maxToolCalls: 50
+    maxDurationMillis: 300000
+tools:
+    lookup:
+        permissions: [orders:read]
+        approvalRequired: false
+        parameters:
+            type: OBJECT
+            properties:
+                tenant:
+                    type: STRING
+                    equalsContext: tenantId
+                orderId:
+                    type: STRING
+            required: [tenant, orderId]
+contentRules:
+    - id: demo-deny-marker
+      points: [input, pre_model_call, post_model_call, pre_tool_call, post_tool_call, output]
+      denyContains: [DENIED]
+    - id: demo-mask-input
+      points: [input]
+      replacements:
+          DEMO_PRIVATE_INPUT: MASKED_INPUT
+    - id: demo-mask-tool-result
+      points: [post_tool_call]
+      replacements:
+          DEMO_PRIVATE_TOOL: MASKED_TOOL

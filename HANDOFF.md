@@ -6,9 +6,9 @@
 
 | 仓库 | 分支 | 当前基线提交 | 本次开始时状态 |
 | --- | --- | --- | --- |
-| 本仓库 `agent-guard` | master | 本次交接提交（父提交 `7edc78f`，准确 HEAD 用 git log 核对） | 用户已授权提交当前文档，并推送至 `umuo/agt-guard-spi` 的 `master` |
+| 本仓库 `agent-guard` | master | 本次示例迁入提交（父提交 `90896eb`，准确 HEAD 用 git log 核对） | 用户已授权将示例目录与交接变更提交并推送至 `umuo/agt-guard-spi` 的 `master` |
 | 关联 `langchain4j` | codex/agent-guard-integration | `5fcd835fa` | 干净；本地 main 已恢复至 `8f32a2fd5`；未 fetch，不能认定远端实时状态 |
-| 关联 `agent-guard-example` | main | `dcafffa` | 纯代码示例及 README 已本地提交 |
+| 内置 `agent-guard-example/` | 随本仓库 master | 原独立仓库基线 `dcafffa` | 现作为普通目录跟踪，不再需要独立 clone |
 
 流式优化已在 `b9b1ac3` 本地提交；此前配置诊断为 SDK `9f79592`、框架 `5fcd835fa`、示例 `a0eee32`。用户已授权增加策略配置易用性并提交，本轮代码和交接记录纳入本次本地提交，未推送：SDK 新增组合回调、批量配置、租户工具快捷入口和错误位置提示；示例采用新 API。LangChain4j 源码未修改。
 
@@ -18,6 +18,32 @@
 - 本次提交范围为 `HANDOFF.md` 与 `agt-core/UPSTREAM.md`，包含此前编译排查、AGT 回同步和 LangChain4j 分支整理记录。配置目标为 `origin`，提交后执行 `git push -u origin master`；推送结果以远端引用和实际 Git 状态核对为准。
 - 已检查完整待提交 diff、未跟踪文件及已跟踪文件的常见密钥、敏感文件名和个人路径模式，未发现匹配项；此模式扫描不保证识别所有秘密。纯文档变更未重跑构建测试，收尾使用 `git diff --check` 与 Git 分支状态核验。示例仓库不在本次推送范围。
 - 本节更新了此前“SDK 无远端、未推送”的历史快照；下文各开发阶段的测试结果与当时推送状态仍保留为历史证据。
+
+## 示例迁入 SDK 仓库（2026-10-31）
+
+- 用户已将示例移动至本仓库 `agent-guard-example/`，并授权提交、推送。原独立仓库为干净的 `main`、HEAD `dcafffa`，36 个受跟踪文件作为普通文件纳入 SDK，不使用 gitlink/submodule；保留原提交号作为来源记录。
+- 原示例 `.git` 已移动至本机忽略目录 `.local-repo-backups/agent-guard-example.git`，历史可用 `git --git-dir=.local-repo-backups/agent-guard-example.git log` 查看。此目录不推送、不作为另一台 Mac 获取源码的前提；完整历史仍只保留在本地备份，远端包含导入快照。原 `.env`、IDE 配置和 target 均保留本地且被忽略。
+- 调整示例安装脚本默认路径为上一级 SDK 及与 SDK 同级的 LangChain4j，保留环境变量覆盖；修正文档中的 SDK 源码相对链接，同步 README、AGENTS 和换 Mac 步骤。示例仍使用 JDK 17 独立构建，不添加至 SDK 的 Java 8 默认 reactor。此前“三个独立仓库”的描述为历史状态，以本节和当前恢复步骤为准。
+- 迁入目录执行 JDK 17/Maven 3.9.16 的 `mvn -B -ntp -nsu clean test`：13 项通过，0 失败、0 错误、0 跳过；本地 HTTP/SSE，无真实 LLM。脚本 `bash -n`、示例 POM XML 解析、示例与入口 Markdown 本地链接、11 个 Java 文件的类型 Javadoc 形态及通配符/Tab/简短无花括号卫语句模式检查均通过。
+- 完整 `scripts/install-local.sh` 首次在 SDK Spotless 插件解析阶段被本机旧 HTTP 镜像阻止；使用临时 HTTPS Central 镜像重试仍因 `No route to host` 失败，未进入 SDK 编译测试或框架安装。未修改全局 Maven 配置、未关闭检查规则；本次不宣称跨仓依赖重装通过。示例测试使用现有本地依赖，网络恢复后可重新安装。
+- 提交范围同时包含此前示例 IDEA 索引排查和框架干净编译的交接记录。新文件的常见密钥、个人路径和敏感文件名模式扫描无命中，无缺失的本地 Markdown 链接；提交前检查忽略规则及 `git diff --check`，推送目标为 `origin/master`。后续在新目录重新打开 IDEA 项目；未自动启动真实 LLM 演示。
+
+## 示例编译排查（2026-10-31）
+
+- 用户反馈 `agent-guard-example` 编译失败。实际工作区干净，`main` 为 `dcafffa`；关联框架位于 `codex/agent-guard-integration`、HEAD `5fcd835fa`。未修改示例源码、POM 或 IDE 配置。
+- 使用本机已有的 Maven 3.9.16 与 JDK 17 执行 `mvn -B -ntp -nsu clean test`，生产与测试源码编译成功，13 项测试全部通过、无失败或跳过。随后按 IDEA 日志所示的 Maven 3.6.3 与 JDK 25 再运行相同命令，也全部通过；旧 Maven 有运行时 API 警告，但本次未导致构建失败。两次均使用本地 HTTP/SSE，无真实 LLM 调用。
+- IDEA 项目 SDK/默认语言级别为 25，本地默认 bytecode target 为 8；但 Maven external storage 的模块语言级别和 bytecode target 已为 17，因此不能仅凭本地默认配置认定失败原因。最新日志显示示例 Maven 导入使用 Maven 3.6.3/JDK 25，尚未取得本次实际编译报错；历史框架 Lombok 故障不能当成本次示例失败证据。
+- 当前执行环境 PATH 找不到 `mvn`，验证使用已有 Maven 的绝对路径；这仅说明当前终端环境，不代表用户终端同样缺失。尚未复现用户报错，待用户提供失败入口和第一条错误后继续定位；未宣称已修复或完成 IDEA Build 验收。
+- 用户随后确认失败入口为 IDEA。直接在示例窗口执行 Build → Rebuild Project，2026-10-31 08:53 的 Build 面板显示 `Build completed successfully in 2 sec, 402 ms`；生产和测试源码均经 javac 25.0.4.1 编译成功。未修改源码或 IDE 配置，当前 IDEA 完整重建已验收通过；未取得此前错误，不能确定历史根因，也不将编译成功解释为 IDEA 已执行测试。上条“IDEA Build 未验收”是重建前的排查状态。
+- 用户进一步指出 `GuardDemo.java:120` 的 `builder.guardDiagnostics()` 编辑器爆红。IDEA Problems 实际显示 `Cannot resolve method 'guardDiagnostics' in 'AiServices'`，尽管编译成功；修改版源码及本地 sources JAR 均包含该方法。Reload All Maven Projects 后错误仍在；通过 Help → Find Action → Repair IDE 执行第一步 Refresh Indexable Files 后，方法解析错误消失，Problems 从 10 项降为 9 项，仅剩原有警告和提示；已确认 Everything Works Now。此次问题定位为 IDEA 索引/缓存状态未刷新，未修改源码、POM 或 JDK 配置，无需删除诊断调用。编译成功与编辑器解析正常已分别验证。
+
+## LangChain4j 干净编译核验（2026-10-31）
+
+- 用户询问关联框架能否构建。实际分支 `codex/agent-guard-integration`、HEAD `5fcd835fa`，操作前后工作区均干净。使用项目 Maven Wrapper 3.9.16，未修改源码或构建配置。
+- JDK 17：`JAVA_HOME="$(/usr/libexec/java_home -v 17)" ./mvnw -B -ntp -nsu clean compile`，默认 reactor 117 模块全部成功，36.231 秒。
+- JDK 21：`JAVA_HOME="$(/usr/libexec/java_home -v 21)" ./mvnw -B -ntp -nsu -pl langchain4j-jlama,langchain4j-jitllm -am clean compile`，12 模块全部成功，8.583 秒。
+- JDK 25：`JAVA_HOME="$(/usr/libexec/java_home -v 25)" ./mvnw -B -ntp -nsu -pl langchain4j-gpu-llama3 -am clean compile`，11 模块全部成功，7.143 秒。
+- 本轮结论为生产源码的干净编译通过，覆盖默认 reactor 及三个高 JDK 可选模块；未执行测试、package、verify、install 或本轮框架 IDEA Rebuild，不将其表述为全仓测试或发布门禁通过。`git diff --check` 通过。
 
 ## LangChain4j 分支整理（2026-10-31）
 
@@ -141,11 +167,11 @@ JAVA_HOME="$(/usr/libexec/java_home -v 17)" mvn -B verify
 
 ## 换 Mac 的恢复步骤
 
-1. 先同步三个仓库的目标提交和交接文件。上一轮已本地提交，但未配置 SDK 远端或推送；迁移前仍须检查是否有新的未提交文件；未提交变更不会随 Git 迁移。仅复制 Codex 聊天不能迁移源码。
-2. 可以把三个仓库放在同一父目录：`agent-guard/`、`langchain4j/`、`agent-guard-example/`；路径可含空格，命令引用变量时始终加双引号。
+1. 同步 SDK 与 LangChain4j 两个仓库的目标提交和交接文件，示例随 SDK 一起获取。SDK 远端为 `umuo/agt-guard-spi`，框架远端为 `umuo/langchain4j-guard`，框架使用 `codex/agent-guard-integration` 分支。迁移前仍须检查新的未提交文件，未提交变更不会随 Git 迁移。
+2. 两个仓库默认放在同一父目录：`agent-guard/`、`langchain4j/`，示例位于 `agent-guard/agent-guard-example/`。从 `agt-guard-spi` clone 时可显式指定本地目录名 `agent-guard`；其他布局使用下述环境变量。路径可含空格，命令引用变量时始终加双引号。
 3. 在新 Mac 安装 JDK 17、Maven 3.8+；需要验收 SDK Java 8 时再安装 JDK 8。执行 `git status --short --branch`、`git log -1 --oneline` 与 `mvn -v`，核对版本表。
 4. 在 SDK 根目录执行 `mvn verify`。集成运行需要从源码重新安装本机 SNAPSHOT，不复制旧机器的 target 或整个 Maven 缓存。
-5. 进入示例仓库，阅读其 README，执行以下现有脚本：
+5. 进入 SDK 的 `agent-guard-example/`，阅读其 README，执行以下现有脚本：
 
 ```sh
 export JAVA_HOME="$(/usr/libexec/java_home -v 17)"
@@ -154,10 +180,10 @@ export PATH="$JAVA_HOME/bin:$PATH"
 mvn -nsu test
 ```
 
-脚本先安装 SDK，再安装所需框架模块。LangChain4j 安装步骤跳过测试、格式与 Revapi 等门禁，仅用于准备本地制品，不代表框架验证通过。非同级目录可通过 `AGENT_GUARD_SOURCE`、`LANGCHAIN4J_SOURCE` 指定源码根目录，通过 `MAVEN_CMD` 指定 Maven 可执行文件，均为本机配置。
+脚本先安装上一级 SDK，再安装与 SDK 同级的框架模块。LangChain4j 安装步骤跳过测试、格式与 Revapi 等门禁，仅用于准备本地制品，不代表框架验证通过。其他目录布局可通过 `AGENT_GUARD_SOURCE`、`LANGCHAIN4J_SOURCE` 指定源码根目录，通过 `MAVEN_CMD` 指定 Maven 可执行文件，均为本机配置。
 
 6. 真实 LLM 在示例目录从 `.env.example` 创建本地 `.env`，自行填入端点、模型、密钥；不把密钥写进交接文档。根据示例 README 选择 `run.sh`、`run-code-policy.sh`、`run-streaming.sh` 或 `run-plain-streaming.sh`。
-7. 新会话给 Codex 的入口可以是：“先阅读 AGENTS.md 和 HANDOFF.md，核对三个仓库状态，汇报差异，再继续我指定的任务。”
+7. 新会话给 Codex 的入口可以是：“先阅读 AGENTS.md 和 HANDOFF.md，核对 SDK 与 LangChain4j 仓库状态，汇报差异，再继续我指定的任务。”
 
 ### 没有远端时如何传递 Git 历史
 
@@ -169,7 +195,7 @@ git bundle create ../agent-guard.bundle --all
 git clone -b master ./agent-guard.bundle agent-guard
 ```
 
-另外两个仓库用各自名称及 main 分支。bundle 只包含已有提交与引用，不含未提交文件或 `.env`。已有目标 checkout 时先 `git bundle verify`、检查目标工作区，再按需 fetch/合并，禁止直接重置覆盖本地改动。以后采用远端同步时，实际地址由用户提供，不在共享文档记录带凭据的 URL。
+框架仓库使用自己的名称及 `codex/agent-guard-integration` 分支；示例已内置，无需单独生成 bundle。bundle 只包含已有提交与引用，不含未提交文件或 `.env`。已有目标 checkout 时先 `git bundle verify`、检查目标工作区，再按需 fetch/合并，禁止直接重置覆盖本地改动。远端同步不在共享文档记录带凭据的 URL。
 
 ## 下一步任务
 

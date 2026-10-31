@@ -81,3 +81,6 @@ HANDOFF.local.md
 *.bundle
 __pycache__/
 *.pyc
+
+# Preserved Git metadata from repositories imported as ordinary directories
+/.local-repo-backups/
