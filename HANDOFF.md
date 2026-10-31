@@ -1,16 +1,37 @@
 # Agent Guard 开发交接
 
-更新时间：2026-10-28（Asia/Shanghai）。此文件是仓库事实快照，新会话先阅读并复核 Git 状态。
+更新时间：2026-10-31（Asia/Shanghai）。此文件是仓库事实快照，新会话先阅读并复核 Git 状态。
 
 ## 当前 Git 状态与范围
 
 | 仓库 | 分支 | 当前基线提交 | 本次开始时状态 |
 | --- | --- | --- | --- |
-| 本仓库 `agent-guard` | master | 本次策略易用性提交（父提交 `b9b1ac3`，准确 HEAD 用 git log 核对） | 本轮代码和交接更新一并本地提交，无远端配置 |
-| 关联 `langchain4j` | main | `5fcd835fa` | 干净；未 fetch，不能认定远端实时状态 |
+| 本仓库 `agent-guard` | master | 本次交接提交（父提交 `7edc78f`，准确 HEAD 用 git log 核对） | 用户已授权提交当前文档，并推送至 `umuo/agt-guard-spi` 的 `master` |
+| 关联 `langchain4j` | codex/agent-guard-integration | `5fcd835fa` | 干净；本地 main 已恢复至 `8f32a2fd5`；未 fetch，不能认定远端实时状态 |
 | 关联 `agent-guard-example` | main | `dcafffa` | 纯代码示例及 README 已本地提交 |
 
 流式优化已在 `b9b1ac3` 本地提交；此前配置诊断为 SDK `9f79592`、框架 `5fcd835fa`、示例 `a0eee32`。用户已授权增加策略配置易用性并提交，本轮代码和交接记录纳入本次本地提交，未推送：SDK 新增组合回调、批量配置、租户工具快捷入口和错误位置提示；示例采用新 API。LangChain4j 源码未修改。
+
+## SDK 远端同步（2026-10-31）
+
+- 用户授权将当前目录文件提交并推送至 `git@github.com:umuo/agt-guard-spi.git`。操作前本地 `master` 为 `7edc78f`，未配置远端；通过 `git ls-remote --symref` 核对目标远端为空。
+- 本次提交范围为 `HANDOFF.md` 与 `agt-core/UPSTREAM.md`，包含此前编译排查、AGT 回同步和 LangChain4j 分支整理记录。配置目标为 `origin`，提交后执行 `git push -u origin master`；推送结果以远端引用和实际 Git 状态核对为准。
+- 已检查完整待提交 diff、未跟踪文件及已跟踪文件的常见密钥、敏感文件名和个人路径模式，未发现匹配项；此模式扫描不保证识别所有秘密。纯文档变更未重跑构建测试，收尾使用 `git diff --check` 与 Git 分支状态核验。示例仓库不在本次推送范围。
+- 本节更新了此前“SDK 无远端、未推送”的历史快照；下文各开发阶段的测试结果与当时推送状态仍保留为历史证据。
+
+## LangChain4j 分支整理（2026-10-31）
+
+- 用户授权将已提交的护栏改动保留到新分支，并恢复本地主分支。已从 `5fcd835fa` 创建并切换至 `codex/agent-guard-integration`，完整保留五个 Agent Guard 提交；本地 `main` 恢复至这些改动之前的 `8f32a2fd5`，与当前本地记录的 `origin/main` 一致。
+- 执行 `git switch -c codex/agent-guard-integration`、`git branch -f main 8f32a2fd5`；通过 `git status --short --branch`、`git branch -vv`、`git log --oneline main..codex/agent-guard-integration` 和 `git diff --check` 核验，框架工作区干净，提交差集恰为上述五项。未 fetch、未推送、未修改源码，未重跑构建测试。
+- 用户随后提供个人 fork 并授权推送：官方远端由 `origin` 改名为 `upstream`，个人 fork `umuo/langchain4j-guard` 配置为 `origin`。执行 `git push -u origin codex/agent-guard-integration` 成功，新分支已推送并跟踪同名远端分支，HEAD 为 `5fcd835fa`；未推送或修改远端 `main`。本地 `main` 继续跟踪 `upstream/main`。
+- 后续继续护栏开发使用新分支；另一台 Mac 可从个人 fork 获取该分支。本仓库仅更新交接，保留已有未提交文档，不创建提交。
+
+## AGT Core 通用优化回同步（2026-10-31）
+
+- 用户授权将本仓库 agt-core 的非 Java 8 优化同步至关联 `agent-governance-toolkit-4j`。目标实际分支为 `codex/langchain4j-native-integration`，HEAD `f672c1c`；开始时 `agt-core/pom.xml` 已有两行未提交改动，本轮原样保留。
+- 根据提交历史和源码比较，通用优化来自 `b9b1ac3`：ChunkBufferEngine 的回调内定时器合并、原超时起点保留，以及 seal 异常统一关闭和单次失败通知。仅同步该生产类与九项生命周期回归；目标保留 List.copyOf、List/Set/Map.of、String.repeat，未引入 Java8/ProcessCleanup 或其他降级改造。
+- 先在目标旧实现上运行九项新回归，四项复现失败；移植后 Core `clean verify` 90 项通过。目标完整 reactor `AGT_LIVE_TEST=false mvn -B -nsu verify`：508 项、0 失败、0 错误、2 项跳过，即 506 项实际通过；JDK 17、Maven 3.9.9。真实 LLM 未调用，性能基准未重跑。
+- 目标新增 `docs/streaming-core-sync.md` 并从现有流式验收文档链接；本仓库更新 UPSTREAM 来源说明和本交接。保留此前编译排查的未提交 HANDOFF 改动；同步时未 install。用户随后授权提交并推送：目标提交 `92cb2fa` 已成功推送至 `origin/codex/langchain4j-native-integration`，目标工作区干净；本仓库文档仍未提交。同步代码已完成，目标 IDEA 实际重建仍属于此前待用户验证事项。
 
 ## 最近工作和已完成能力
 
@@ -43,7 +64,7 @@
 
 ## 未解决问题与明确限制
 
-- SDK 没有配置远端；交接机制已在 `9f79592` 提交，流式交接已在 `b9b1ac3` 提交，本轮策略易用性交接更新随代码一并本地提交。当前尚未同步到另一台 Mac，后续推送或迁移仍需用户授权。
+- SDK 当前远端同步授权与操作范围见上方“SDK 远端同步”；尚未在另一台 Mac 实际恢复构建，不将推送视为跨机器运行验证。
 - 已有配置快照；它展示已注册 Guard，不展示 AGT 内部内容条目，也不证明某次请求执行了全部规则。第三方引擎未实现可选接口或元信息读取故障时详情未知。动态策略和 supports 的请求级生效情况需通过运行时事件查看。缺策略仍初始化失败。
 - WINDOW 有规则组合限制；Flow.Publisher、媒体及 Spring AI 适配尚未实现。
 - 自动工厂只在初始化时读取配置，无策略热加载。AGT 桥接审批需求当前阻断；预算等执行治理没有接入宿主生命周期。
@@ -51,6 +72,19 @@
 - 仓库未跟踪 Maven Wrapper 或 CI 工作流；构建依赖机器上的 Maven/JDK。跨仓安装脚本要求 Maven 3.8+，不能依赖本机 Maven 缓存自动迁移。
 - 本轮仅测量本机短基准与受控并发探针，耗时误差范围有重叠；未验证持续生产负载、跨机器稳定性能、外部真实 LLM、整个 LangChain4j reactor 或 Sonar。
 - 老文档保留各阶段历史测试数（如 121/164/9），不能拿来代表当前总数。
+
+## LangChain4j 编译排查（2026-10-28）
+
+- 关联框架当前源码基线仍为 `5fcd835fa`，排查期间未修改业务代码。终端默认 Maven 3.6.3，在父 POM 的 RequireMavenVersion 校验失败：项目要求 `[3.8,)`；此时尚未进入框架源码编译。
+- 使用 JDK 17 与 Maven 3.9.9，`mvn -B -nsu -pl langchain4j -am clean test-compile`：10 个模块全部成功，覆盖生产及测试源码编译；未执行测试。
+- 框架已有 Maven Wrapper，`./mvnw -v` 确认使用 Maven 3.9.16。JDK 17 下执行 `./mvnw -B -nsu -DskipTests compile`，默认 reactor 的 117 个模块全部成功；此项不是全仓 clean、测试或 install 验收。
+- 推荐在框架根目录用 `JAVA_HOME="$(/usr/libexec/java_home -v 17)" ./mvnw -B -nsu -DskipTests compile` 构建，避免依赖终端 PATH 中的旧 Maven。IDEA 的 Maven home 选择 Wrapper，Project SDK、Maven importer 和 runner JDK 统一为 17。本机 IDEA 原配置与后续实际故障证据、局部调整见下文。
+- 用户补充 IDEA Build 报 `ExceptionInInitializerError / TypeTag :: UNKNOWN`。已读取本机 IDEA 构建日志确认：2026-10-28 15:21 的该项目构建使用 javac 25.0.4.1，LombokProcessor 初始化时因 `NoSuchFieldException: com.sun.tools.javac.code.TypeTag :: UNKNOWN` 失败。此故障独立于终端旧 Maven；不能以终端编译成功代替 IDEA 验收。
+- 已将受 Git 忽略的 `.idea/misc.xml` 中 Project SDK 从 `azul-25` 调整为已注册的 `azul-17`，语言级别从 25 改为 17；未修改全局 JDK 或项目依赖。IDEA 已打开时需重新打开项目以加载磁盘配置，再执行 Build → Rebuild Project；本次不能自动操作 IDEA，实际 IDE 重建结果待用户验证。调整后用 JDK 17 + Wrapper 再次运行核心及依赖 `clean test-compile`，10 个模块全部成功（未执行测试）。Lombok 与编译器兼容性参考 [官方变更记录](https://projectlombok.org/changelog)，Java 编译器选择参考 [IDEA 官方文档](https://www.jetbrains.com/help/idea/specifying-compilation-settings.html)。
+- 后续 IDEA 报 Jlama target 21 却 fallback SDK 8。源码证据：根 POM 的 `jdk21` profile 在 JDK ≥21 时添加 Jlama/Jitllm，`jdk25` profile 添加 GPU Llama3；Jlama/Jitllm 目标 21，GPU 目标 25。因此上面的 JDK 17 默认 reactor 117 模块成功不包含这三个可选模块，不能据此声称所有可选模块已通过。
+- 验证：JDK 21 + Wrapper 执行 `-pl langchain4j-jlama,langchain4j-jitllm -am -DskipTests compile`，12 模块成功；JDK 25 + Wrapper 执行 `-pl langchain4j-gpu-llama3 -am -DskipTests compile`，11 模块成功。这两次为增量生产源码编译，未执行测试，不代替 IDEA Rebuild。
+- 普通模块保留项目 SDK 17；在本机 IDEA 该项目的 external storage 模块配置中，给 `langchain4j-jlama`、`langchain4j-jitllm` 显式设置已注册的 `azul-21`，给 `langchain4j-gpu-llama3` 设置 `azul-25`。这些均是本地生成配置，不纳入 Git；重新导入 Maven 可能重建它们。跨 Mac 应在 Project Structure → Modules → Dependencies 为可选模块配置对应 SDK，并检查 Maven importer JDK 与激活 profile，不能统一将所有模块降至 17 或 8。IDEA 仍需重新加载项目后实际 Rebuild 验收。
+- JDK 25 + Maven 3.9.9 的核心模块 `clean compile` 也成功，说明该定向 Maven 路径没有复现 IDEA 注解处理路径的故障，不能笼统断言所有 JDK 25 构建必失败。
 
 ## 测试证据
 

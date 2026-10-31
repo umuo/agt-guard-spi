@@ -13,3 +13,5 @@
 保留 `io.agt` 包名和制品坐标；应用应只选用本 reactor 构建的一个 agt-core，避免与另一个同坐标版本混用。
 
 流式缓冲本地修复：seal 检查失败统一执行关闭与单次错误通知；accept 合并回调内的重复定时器调度并保留原超时期限。变更、回归与性能证据见 [流式性能记录](../docs/streaming-performance.md)。
+
+2026-10-31：上述通用流式优化及九项生命周期回归已回同步至原 Agent Governance Toolkit for Java 的工作区，目标基线 `f672c1c`；保留其 JDK 17 API，未带入 Java 8 兼容层。目标 Core 90 项、全仓 508 项测试（2 项跳过）验证通过；随后经用户授权，以 `92cb2fa` 提交并推送至原项目的 `codex/langchain4j-native-integration` 分支。
